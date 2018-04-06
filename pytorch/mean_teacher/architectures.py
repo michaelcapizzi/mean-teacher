@@ -349,9 +349,6 @@ class LSTM(nn.Module):
         )
         if self.use_gpu:
             self.projection_layer.cuda()
-        self.projection_activation=torch.nn.ReLU()
-        if self.use_gpu:
-            self.projection_activation.cuda()
 
     @staticmethod
     def _get_input_size(dict_of_embedding_classes):
@@ -364,17 +361,17 @@ class LSTM(nn.Module):
             total_input_size += v.embedding_dim
         return total_input_size
 
-    # TODO implement
     def _build_word_dropout_layers(self):
         """
         Builds word-level dropout layers to be applied to LSTM
         """
-        word_level_dropout_layers = OrderedDict()
         if self.word_level_dropout_rate:
+            word_level_dropout_layers = OrderedDict()
             for i in range(self.num_layers):
                 word_level_dropout_layers[i] = torch.nn.Dropout2d(self.word_level_dropout_rate)
                 if self.use_gpu:
                     word_level_dropout_layers[i].cuda()
+            return word_level_dropout_layers
 
     def forward(self, xs):
         """
@@ -389,5 +386,12 @@ class LSTM(nn.Module):
             inputs[xk] = self.input_embeddings[xk](xv)
         # concatenate
         input_ = torch.cat(list(inputs.values()))
-        # feed through each LSTM layer
-        hidden
+        # apply word-level dropout
+        # TODO implement for all layers
+        if self.word_level_dropout_layers:
+            input_ = self.word_level_dropout_layers[0](input_)   # right now only applying at input layer
+        # run through LSTM
+        lstm_out, _ = self.model(input_)
+        # apply projection
+        final_out = self.projection_layer(lstm_out)
+        return final_out
