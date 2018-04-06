@@ -14,11 +14,12 @@ import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
-import torchvision.datasets
+# import torchvision.datasets
 
-from mean_teacher import architectures, datasets, data, losses, ramps, cli
+# from mean_teacher import architectures, datasets, data, losses, ramps, cli
+from mean_teacher import architectures, losses, ramps, cli
 from mean_teacher.run_context import RunContext
-from mean_teacher.data import NO_LABEL
+# from mean_teacher.data import NO_LABEL
 from mean_teacher.utils import *
 
 

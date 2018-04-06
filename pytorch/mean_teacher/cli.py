@@ -2,7 +2,8 @@ import re
 import argparse
 import logging
 
-from . import architectures, datasets
+# from . import architectures, datasets
+from . import architectures
 
 
 LOG = logging.getLogger('main')
@@ -12,11 +13,11 @@ __all__ = ['parse_cmd_args', 'parse_dict_args']
 
 def create_parser():
     parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-    parser.add_argument('--dataset', metavar='DATASET', default='imagenet',
-                        choices=datasets.__all__,
-                        help='dataset: ' +
-                            ' | '.join(datasets.__all__) +
-                            ' (default: imagenet)')
+    # parser.add_argument('--dataset', metavar='DATASET', default='imagenet',
+    #                     choices=datasets.__all__,
+    #                     help='dataset: ' +
+    #                         ' | '.join(datasets.__all__) +
+    #                         ' (default: imagenet)')
     parser.add_argument('--train-subdir', type=str, default='train',
                         help='the subdirectory inside the data directory that contains the training data')
     parser.add_argument('--eval-subdir', type=str, default='val',
