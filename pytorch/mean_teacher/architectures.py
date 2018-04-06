@@ -1,6 +1,7 @@
 import sys
 import math
 import itertools
+from collections import OrderedDict
 
 import torch
 from torch import nn
@@ -303,3 +304,90 @@ class ShiftConvDownsample(nn.Module):
         x = self.conv(x)
         x = self.bn(x)
         return x
+
+
+class LSTM(nn.Module):
+    def __init__(self, num_layers, input_embeddings, hidden_size, output_size, batch_size, dropout_rate=None, word_dropout_rate=None, bi_directional=True, use_gru=True, use_relu=False, use_gpu=True):
+        """
+        :param num_layers: number of layers to the model
+        :param input_embeddings: <OrderedDict> of Embedding classes for each input to model
+                                    k=embedding_layer_name, v=embedding class
+        :param hidden_size: size of hidden layer and c-state in LSTM
+        :param output_size: number of labels
+        :param batch_size: size of batch
+        :param dropout_rate: dropout rate to apply to each layer
+        :param word_dropout_rate: word-level dropout rate to apply to each layer
+        :param bi_directional: If True, will be bi-directional
+        :param use_gru: If True, will use GRU instead of LSTM
+        :param use_relu: If True, will replace tanh with relu
+        :param use_gpu: If True, will activate .cuda() for layers
+        """
+        super().__init__()
+        self.num_layers = num_layers
+        self.input_embeddings = input_embeddings
+        self.input_size = self._get_input_size(input_embeddings)
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.batch_size = batch_size
+        self.bi_directional = bi_directional
+        self.use_gpu=use_gpu
+        self.model = get_attr(torch.nn, "LSTM" if not use_gru else "GRU")(
+            input_size=self.input_size,
+            hidden_size=self.hidden_size,
+            num_layers=self.num_layers,
+            batch_first=True,
+            dropout=dropout_rate,
+            bidirectiona=self.bi_directional
+        )
+        if self.use_gpu:
+            self.model.cuda()
+        self.word_level_dropout_rate=word_dropout_rate
+        self.word_level_dropout_layers=self._build_word_dropout_layers()
+        self.projection_layer=torch.nn.Linear(
+            in_features=hidden_size,
+            out_features=output_size
+        )
+        if self.use_gpu:
+            self.projection_layer.cuda()
+        self.projection_activation=torch.nn.ReLU()
+        if self.use_gpu:
+            self.projection_activation.cuda()
+
+    @staticmethod
+    def _get_input_size(dict_of_embedding_classes):
+        """
+        Determine the required input size by concatenating embeddings
+        :return: <int>
+        """
+        total_input_size = 0
+        for e, v in dict_of_embedding_classes.items():
+            total_input_size += v.embedding_dim
+        return total_input_size
+
+    # TODO implement
+    def _build_word_dropout_layers(self):
+        """
+        Builds word-level dropout layers to be applied to LSTM
+        """
+        word_level_dropout_layers = OrderedDict()
+        if self.word_level_dropout_rate:
+            for i in range(self.num_layers):
+                word_level_dropout_layers[i] = torch.nn.Dropout2d(self.word_level_dropout_rate)
+                if self.use_gpu:
+                    word_level_dropout_layers[i].cuda()
+
+    def forward(self, xs):
+        """
+        Runs a single pass through the network
+        :param xs: <OrderedDict> of inputs corresponding to each embedding layer in self.input_embeddings
+                    key=name_of_input_embedding, value=input
+        :return: <FloatTensor>
+        """
+        inputs = OrderedDict()
+        # run through embedding layers
+        for xk, xv in xs.items():
+            inputs[xk] = self.input_embeddings[xk](xv)
+        # concatenate
+        input_ = torch.cat(list(inputs.values()))
+        # feed through each LSTM layer
+        hidden
