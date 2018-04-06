@@ -39,20 +39,30 @@ def main(context):
     validation_log = context.create_train_log("validation")
     ema_validation_log = context.create_train_log("ema_validation")
 
-    dataset_config = datasets.__dict__[args.dataset]()
-    num_classes = dataset_config.pop('num_classes')
-    train_loader, eval_loader = create_data_loaders(**dataset_config, args=args)
+    # TODO dataset loading
+    # dataset_config = datasets.__dict__[args.dataset]()
+    # num_classes = dataset_config.pop('num_classes')
+    # train_loader, eval_loader = create_data_loaders(**dataset_config, args=args)
 
     def create_model(ema=False):
-        LOG.info("=> creating {pretrained}{ema}model '{arch}'".format(
-            pretrained='pre-trained ' if args.pretrained else '',
+        LOG.info("=> creating {ema}model '{arch}'".format(
             ema='EMA ' if ema else '',
             arch=args.arch))
 
         model_factory = architectures.__dict__[args.arch]
-        model_params = dict(pretrained=args.pretrained, num_classes=num_classes)
+
+        # TODO automate this somehow with CLI args
+        embedding_layer = torch.nn.Embedding(10, 7)
+        model_params = dict(
+            num_layers=1,
+            input_embeddings={"input": embedding_layer},
+            hidden_size=3,
+            output_size=2,
+            batch_size=1,
+            use_gpu=False
+        )
+        # build model
         model = model_factory(**model_params)
-        model = nn.DataParallel(model).cuda()
 
         if ema:
             for param in model.parameters():
@@ -65,6 +75,7 @@ def main(context):
 
     LOG.info(parameters_string(model))
 
+    # TODO add to CLI args
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay,
@@ -95,6 +106,7 @@ def main(context):
     for epoch in range(args.start_epoch, args.epochs):
         start_time = time.time()
         # train for one epoch
+        # TODO here update
         train(train_loader, model, ema_model, optimizer, epoch, training_log)
         LOG.info("--- training epoch in %s seconds ---" % (time.time() - start_time))
 
@@ -139,6 +151,7 @@ def parse_dict_args(**kwargs):
     args = parser.parse_args(cmdline_args)
 
 
+# TODO update to use torchtext
 def create_data_loaders(train_transformation,
                         eval_transformation,
                         datadir,
@@ -148,7 +161,7 @@ def create_data_loaders(train_transformation,
 
     assert_exactly_one([args.exclude_unlabeled, args.labeled_batch_size])
 
-    dataset = torchvision.datasets.ImageFolder(traindir, train_transformation)
+    # dataset = torchvision.datasets.ImageFolder(traindir, train_transformation)
 
     if args.labels:
         with open(args.labels) as f:
@@ -190,7 +203,10 @@ def update_ema_variables(model, ema_model, alpha, global_step):
 def train(train_loader, model, ema_model, optimizer, epoch, log):
     global global_step
 
-    class_criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=NO_LABEL).cuda()
+    # class_criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=NO_LABEL).cuda()
+    class_criterion = nn.CrossEntropyLoss(size_average=False)
+    if model.use_gpu:
+        class_criterion.cuda()
     if args.consistency_type == 'mse':
         consistency_criterion = losses.softmax_mse_loss
     elif args.consistency_type == 'kl':

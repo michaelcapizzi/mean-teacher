@@ -11,8 +11,9 @@ LOG = logging.getLogger('main')
 __all__ = ['parse_cmd_args', 'parse_dict_args']
 
 
+# TODO update command line arguments
 def create_parser():
-    parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
+    parser = argparse.ArgumentParser(description='PyTorch mean-teacher NLP Implementation')
     # parser.add_argument('--dataset', metavar='DATASET', default='imagenet',
     #                     choices=datasets.__all__,
     #                     help='dataset: ' +
@@ -26,7 +27,7 @@ def create_parser():
                         help='list of image labels (default: based on directory structure)')
     parser.add_argument('--exclude-unlabeled', default=False, type=str2bool, metavar='BOOL',
                         help='exclude unlabeled examples from the training set')
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet18',
+    parser.add_argument('--arch', '-a', metavar='ARCH', default='LSTM',
                         choices=architectures.__all__,
                         help='model architecture: ' +
                             ' | '.join(architectures.__all__))
