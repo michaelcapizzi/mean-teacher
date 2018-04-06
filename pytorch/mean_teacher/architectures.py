@@ -307,7 +307,7 @@ class ShiftConvDownsample(nn.Module):
 
 
 class LSTM(nn.Module):
-    def __init__(self, num_layers, input_embeddings, hidden_size, output_size, batch_size, dropout_rate=None, word_dropout_rate=None, bi_directional=True, use_gru=True, use_relu=False, use_gpu=True):
+    def __init__(self, num_layers, input_embeddings, hidden_size, output_size, batch_size, dropout_rate=None, word_dropout_rate=None, bi_directional=True, use_gru=True, use_gpu=True):
         """
         :param num_layers: number of layers to the model
         :param input_embeddings: <OrderedDict> of Embedding classes for each input to model
@@ -319,7 +319,6 @@ class LSTM(nn.Module):
         :param word_dropout_rate: word-level dropout rate to apply to each layer
         :param bi_directional: If True, will be bi-directional
         :param use_gru: If True, will use GRU instead of LSTM
-        :param use_relu: If True, will replace tanh with relu
         :param use_gpu: If True, will activate .cuda() for layers
         """
         super().__init__()
@@ -331,20 +330,21 @@ class LSTM(nn.Module):
         self.batch_size = batch_size
         self.bi_directional = bi_directional
         self.use_gpu=use_gpu
-        self.model = get_attr(torch.nn, "LSTM" if not use_gru else "GRU")(
+        self.model = getattr(torch.nn, "LSTM" if not use_gru else "GRU")(
             input_size=self.input_size,
             hidden_size=self.hidden_size,
             num_layers=self.num_layers,
             batch_first=True,
             dropout=dropout_rate,
-            bidirectiona=self.bi_directional
+            bidirectional=self.bi_directional,
+
         )
         if self.use_gpu:
             self.model.cuda()
         self.word_level_dropout_rate=word_dropout_rate
         self.word_level_dropout_layers=self._build_word_dropout_layers()
         self.projection_layer=torch.nn.Linear(
-            in_features=hidden_size,
+            in_features=self.hidden_size if not self.bi_directional else self.hidden_size * 2,
             out_features=output_size
         )
         if self.use_gpu:
@@ -382,16 +382,22 @@ class LSTM(nn.Module):
         """
         inputs = OrderedDict()
         # run through embedding layers
+        print("embedding")
         for xk, xv in xs.items():
+            print(self.input_embeddings[xk])
             inputs[xk] = self.input_embeddings[xk](xv)
         # concatenate
+        print("concat")
         input_ = torch.cat(list(inputs.values()))
         # apply word-level dropout
         # TODO implement for all layers
         if self.word_level_dropout_layers:
-            input_ = self.word_level_dropout_layers[0](input_)   # right now only applying at input layer
+            print("word-level dropout")
+            input_ = self.word_level_dropout_layers[0](input_)   # currently only applying at input layer
         # run through LSTM
+        print("LSTM")
         lstm_out, _ = self.model(input_)
         # apply projection
+        print("projection")
         final_out = self.projection_layer(lstm_out)
         return final_out
