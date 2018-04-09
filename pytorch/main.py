@@ -162,9 +162,9 @@ def get_labeled_unlabeled_idxs(training_dataset):
 
 def create_data_loaders(dir_to_pickled_datasets,
                         args):
-    train_dataset = pickle.loads("{}/train.pkl".format(args.pickled_datasets))
-    dev_dataset = pickle.loads("{}/dev.pkl".format(args.pickled_datasets))
-    test_dataset = pickle.loads("{}/test.pkl".format(args.pickled_datasets))
+    train_dataset = pickle.loads("{}/train.pkl".format(dir_to_pickled_datasets))
+    dev_dataset = pickle.loads("{}/dev.pkl".format(dir_to_pickled_datasets))
+    test_dataset = pickle.loads("{}/test.pkl".format(dir_to_pickled_datasets))
 
     labeled_idxs, unlabeled_idxs = get_labeled_unlabeled_idxs(train_dataset)
 
