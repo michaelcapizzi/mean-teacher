@@ -2,7 +2,6 @@ import re
 import argparse
 import logging
 
-# from . import architectures, datasets
 from . import architectures
 
 
@@ -28,7 +27,7 @@ def create_parser():
     parser.add_argument("--num_labeled", type=int, default=100, help="number of labeled datapoints to KEEP during training")
     # TODO add more vector options
     parser.add_argument("--vectors", type=str, default="GloVe",
-                        choices=["GloVe"])
+                        choices=["GloVe, FastText"])
     parser.add_argument("--seed", type=int, default=1978, help="random seed")
     parser.add_argument('--exclude-unlabeled', default=False, type=str2bool, metavar='BOOL',
                         help='exclude unlabeled examples from the training set')

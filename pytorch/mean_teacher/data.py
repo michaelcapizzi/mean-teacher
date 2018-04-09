@@ -4,7 +4,7 @@ import itertools
 import logging
 from torchtext import data
 from torchtext import datasets
-from torchtext.vocab import GloVe
+import random
 
 # from PIL import Image
 import numpy as np
@@ -101,7 +101,7 @@ NO_LABEL = -1
 
 
 # TODO build function to generate datasets
-def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vector_name='GloVe', seed=1978):
+def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vectors, seed=1978):
     """
 
     :param number_of_labeled_to_keep:
@@ -122,16 +122,26 @@ def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vector_name='Glo
     print('vars(train[0])', vars(train[0]))
 
     # build the vocabulary
-    TEXT.build_vocab(train, vectors=VECTORS[vector_name])
+    TEXT.build_vocab(train, vectors=vectors)
     LABEL.build_vocab(train)
 
     # print vocab information
     print('len(TEXT.vocab)', len(TEXT.vocab))
     print('TEXT.vocab.vectors.size()', TEXT.vocab.vectors.size())
 
-    # TODO remove some labels
+    # remove some labels
+    random.seed(seed)
+    random_labels_to_remove = set(random.sample(range(train.size), train.size - number_of_labeled_to_keep))
+
     labeled = []
     unlabeled = []
+
+    for idx in range(train.size):
+        if idx in random_labels_to_remove:
+            train.labels[idx] = -1
+            unlabeled.append(idx)
+        else:
+            labeled.append(idx)
 
     # return datasets
     return train, test, labeled, unlabeled

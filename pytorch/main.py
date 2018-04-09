@@ -3,7 +3,6 @@ import os
 import shutil
 import time
 import logging
-import pickle
 
 import numpy as np
 import torch
@@ -13,6 +12,8 @@ import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
+
+from torchtext.vocab import GloVe, FastText
 
 from mean_teacher import architectures, data, losses, ramps, cli
 from mean_teacher.run_context import RunContext
@@ -36,7 +37,25 @@ def main(context):
     ema_validation_log = context.create_train_log("ema_validation")
 
     # load IMDB dataset
-    train_dataloader, eval_dataloader = create_data_loaders(**dataset_config, args=args)
+    train_dataloader, eval_dataloader, train_voc_size, vec_size = create_data_loaders(**dataset_config, args=args)
+
+    # TODO update embedding layer
+    # embedding_layer = torch.nn.Embedding(10, 7)
+    embedding_layer = torch.nn.Embedding(
+        train_voc_size,
+        vec_size
+    )
+    # TODO replace vectors with vectors from Vocab
+    # HERE
+
+    model_params = dict(
+        num_layers=1,
+        input_embeddings={"input": embedding_layer},
+        hidden_size=450,
+        output_size=None,  # TODO number of labels in IMDB
+        batch_size=args.batch_size,
+        use_gpu=False
+    )
 
     def create_model(ema=False):
         LOG.info("=> creating {ema}model '{arch}'".format(
@@ -45,16 +64,6 @@ def main(context):
 
         model_factory = architectures.__dict__[args.arch]
 
-        # TODO automate this somehow with CLI args
-        embedding_layer = torch.nn.Embedding(10, 7)
-        model_params = dict(
-            num_layers=1,
-            input_embeddings={"input": embedding_layer},
-            hidden_size=3,
-            output_size=2,
-            batch_size=1,
-            use_gpu=False
-        )
         # build model
         model = model_factory(**model_params)
 
@@ -142,18 +151,9 @@ def parse_dict_args(**kwargs):
     cmdline_args = list(sum(kwargs_pairs, ()))
     args = parser.parse_args(cmdline_args)
 
-
-# TODO build to get indices of labeled and unlabeled Examples from training dataset
-def get_labeled_unlabeled_idxs(training_dataset):
-    """
-    Get idxs of "unlabeled" Examples (those with label=-1
-    """
-    labeled = list(filter(lambda x: x.label != -1, training_dataset.examples))
-    unlabeled = list(filter(lambda x: x.label == -1, training_dataset.examples))
-    return labeled, unlabeled
-
 VECTORS = {
-    "GloVe": GloVe(name='6B', dim=300)
+    "GloVe": GloVe(name='6B', dim=300),
+    "FastText": FastText()
 }
 
 def create_data_loaders(args):
@@ -178,7 +178,9 @@ def create_data_loaders(args):
         shuffle=False
     )
 
-    return train_dataloader, eval_dataloader
+    # TODO figure out how to get train vocab size and vector size
+
+    return train_dataloader, eval_dataloader, train_vocab_size, vector_size
 
 
 def update_ema_variables(model, ema_model, alpha, global_step):
