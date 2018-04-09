@@ -14,8 +14,6 @@ __all__ = ['parse_cmd_args', 'parse_dict_args']
 # TODO update command line arguments
 def create_parser():
     parser = argparse.ArgumentParser(description='PyTorch mean-teacher NLP Implementation')
-    parser.add_argument('pickled_datasets', type=str,
-                        help='full/path/to/dir/with/train_dev_and_text.dataset.pkl')
     # parser.add_argument('--dataset', metavar='DATASET', default='imagenet',
     #                     choices=datasets.__all__,
     #                     help='dataset: ' +
@@ -27,6 +25,11 @@ def create_parser():
     #                     help='the subdirectory inside the data directory that contains the evaluation data')
     # parser.add_argument('--labels', default=None, type=str, metavar='FILE',
     #                     help='list of image labels (default: based on directory structure)')
+    parser.add_argument("--num_labeled", type=int, default=100, help="number of labeled datapoints to KEEP during training")
+    # TODO add more vector options
+    parser.add_argument("--vectors", type=str, default="GloVe",
+                        choices=["GloVe"])
+    parser.add_argument("--seed", type=int, default=1978, help="random seed")
     parser.add_argument('--exclude-unlabeled', default=False, type=str2bool, metavar='BOOL',
                         help='exclude unlabeled examples from the training set')
     parser.add_argument('--arch', '-a', metavar='ARCH', default='LSTM',

@@ -1,9 +1,7 @@
 import re
-import argparse
 import os
 import shutil
 import time
-import math
 import logging
 import pickle
 
@@ -15,14 +13,11 @@ import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
-# import torchvision.datasets
 
-# from mean_teacher import architectures, datasets, data, losses, ramps, cli
 from mean_teacher import architectures, data, losses, ramps, cli
 from mean_teacher.run_context import RunContext
-# from mean_teacher.data import NO_LABEL
 from mean_teacher.utils import *
-
+from mean_teacher.data import NO_LABEL
 
 LOG = logging.getLogger('main')
 
@@ -40,10 +35,8 @@ def main(context):
     validation_log = context.create_train_log("validation")
     ema_validation_log = context.create_train_log("ema_validation")
 
-    # load datasets
-    # dataset_config = datasets.__dict__[args.dataset]()
-    # num_classes = dataset_config.pop('num_classes')
-    train_dataloader, _, eval_dataloader = create_data_loaders(**dataset_config, args=args)
+    # load IMDB dataset
+    train_dataloader, eval_dataloader = create_data_loaders(**dataset_config, args=args)
 
     def create_model(ema=False):
         LOG.info("=> creating {ema}model '{arch}'".format(
@@ -98,27 +91,22 @@ def main(context):
 
     if args.evaluate:
         LOG.info("Evaluating the primary model:")
-        # validate(eval_loader, model, validation_log, global_step, args.start_epoch)
         validate(eval_dataloader, model, validation_log, global_step, args.start_epoch)
         LOG.info("Evaluating the EMA model:")
-        # validate(eval_loader, ema_model, ema_validation_log, global_step, args.start_epoch)
         validate(eval_dataloader, ema_model, ema_validation_log, global_step, args.start_epoch)
         return
 
     for epoch in range(args.start_epoch, args.epochs):
         start_time = time.time()
         # train for one epoch
-        # train(train_loader, model, ema_model, optimizer, epoch, training_log)
         train(train_dataloader, model, ema_model, optimizer, epoch, training_log)
         LOG.info("--- training epoch in %s seconds ---" % (time.time() - start_time))
 
         if args.evaluation_epochs and (epoch + 1) % args.evaluation_epochs == 0:
             start_time = time.time()
             LOG.info("Evaluating the primary model:")
-            # prec1 = validate(eval_loader, model, validation_log, global_step, epoch + 1)
             prec1 = validate(dev_dataloader, model, validation_log, global_step, epoch + 1)
             LOG.info("Evaluating the EMA model:")
-            # ema_prec1 = validate(dev_loader, ema_model, ema_validation_log, global_step, epoch + 1)
             ema_prec1 = validate(dev_dataloader, ema_model, ema_validation_log, global_step, epoch + 1)
             LOG.info("--- validation in %s seconds ---" % (time.time() - start_time))
             is_best = ema_prec1 > best_prec1
@@ -157,16 +145,19 @@ def parse_dict_args(**kwargs):
 
 # TODO build to get indices of labeled and unlabeled Examples from training dataset
 def get_labeled_unlabeled_idxs(training_dataset):
-    return [], []
+    """
+    Get idxs of "unlabeled" Examples (those with label=-1
+    """
+    labeled = list(filter(lambda x: x.label != -1, training_dataset.examples))
+    unlabeled = list(filter(lambda x: x.label == -1, training_dataset.examples))
+    return labeled, unlabeled
 
+VECTORS = {
+    "GloVe": GloVe(name='6B', dim=300)
+}
 
-def create_data_loaders(dir_to_pickled_datasets,
-                        args):
-    train_dataset = pickle.loads("{}/train.pkl".format(dir_to_pickled_datasets))
-    dev_dataset = pickle.loads("{}/dev.pkl".format(dir_to_pickled_datasets))
-    test_dataset = pickle.loads("{}/test.pkl".format(dir_to_pickled_datasets))
-
-    labeled_idxs, unlabeled_idxs = get_labeled_unlabeled_idxs(train_dataset)
+def create_data_loaders(args):
+    train_dataset, eval_dataset, labeled_idxs, unlabeled_idxs = data.make_imdb_dataset_with_unlabeled(args.num_labeled, VECTORS[args.vectors], args.seed)
 
     if args.exclude_unlabeled:
         sampler = SubsetRandomSampler(labeled_idxs)
@@ -181,17 +172,13 @@ def create_data_loaders(dir_to_pickled_datasets,
     dataset=train_dataset,
         batch_sampler=batch_sampler
         )
-    dev_dataloader = DataLoader(
-        dataset=dev_dataset,
-        batch_size=args.batch_size
-    )
     eval_dataloader = DataLoader(
-        dataset=test_dataset,
+        dataset=eval_dataset,
         batch_size=args.batch_size,
         shuffle=False
     )
 
-    return train_dataloader, dev_dataloader, eval_dataloader
+    return train_dataloader, eval_dataloader
 
 
 def update_ema_variables(model, ema_model, alpha, global_step):
@@ -204,7 +191,6 @@ def update_ema_variables(model, ema_model, alpha, global_step):
 def train(train_loader, model, ema_model, optimizer, epoch, log):
     global global_step
 
-    # class_criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=NO_LABEL).cuda()
     class_criterion = nn.CrossEntropyLoss(size_average=False)
     if model.use_gpu:
         class_criterion.cuda()
@@ -323,7 +309,9 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
 
 
 def validate(eval_loader, model, log, global_step, epoch):
-    class_criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=NO_LABEL).cuda()
+    class_criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=NO_LABEL)\
+    if model.use_gpu:
+        class_criterion.cuda()
     meters = AverageMeterSet()
 
     # switch to evaluate mode
