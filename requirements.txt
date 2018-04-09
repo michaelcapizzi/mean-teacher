@@ -2,5 +2,5 @@ numpy
 scipy
 pandas
 torch
-torchvision
+torchtext
 jupyter

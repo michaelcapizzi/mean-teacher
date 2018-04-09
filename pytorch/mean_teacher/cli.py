@@ -14,25 +14,27 @@ __all__ = ['parse_cmd_args', 'parse_dict_args']
 # TODO update command line arguments
 def create_parser():
     parser = argparse.ArgumentParser(description='PyTorch mean-teacher NLP Implementation')
+    parser.add_argument('pickled_datasets', type=str,
+                        help='full/path/to/dir/with/train_dev_and_text.dataset.pkl')
     # parser.add_argument('--dataset', metavar='DATASET', default='imagenet',
     #                     choices=datasets.__all__,
     #                     help='dataset: ' +
     #                         ' | '.join(datasets.__all__) +
     #                         ' (default: imagenet)')
-    parser.add_argument('--train-subdir', type=str, default='train',
-                        help='the subdirectory inside the data directory that contains the training data')
-    parser.add_argument('--eval-subdir', type=str, default='val',
-                        help='the subdirectory inside the data directory that contains the evaluation data')
-    parser.add_argument('--labels', default=None, type=str, metavar='FILE',
-                        help='list of image labels (default: based on directory structure)')
+    # parser.add_argument('--train-subdir', type=str, default='train',
+    #                     help='the subdirectory inside the data directory that contains the training data')
+    # parser.add_argument('--eval-subdir', type=str, default='val',
+    #                     help='the subdirectory inside the data directory that contains the evaluation data')
+    # parser.add_argument('--labels', default=None, type=str, metavar='FILE',
+    #                     help='list of image labels (default: based on directory structure)')
     parser.add_argument('--exclude-unlabeled', default=False, type=str2bool, metavar='BOOL',
                         help='exclude unlabeled examples from the training set')
     parser.add_argument('--arch', '-a', metavar='ARCH', default='LSTM',
                         choices=architectures.__all__,
                         help='model architecture: ' +
                             ' | '.join(architectures.__all__))
-    parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
-                        help='number of data loading workers (default: 4)')
+    # parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
+    #                     help='number of data loading workers (default: 4)')
     parser.add_argument('--epochs', default=90, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
@@ -76,8 +78,8 @@ def create_parser():
                         help='path to latest checkpoint (default: none)')
     parser.add_argument('-e', '--evaluate', type=str2bool,
                         help='evaluate model on evaluation set')
-    parser.add_argument('--pretrained', dest='pretrained', action='store_true',
-                        help='use pre-trained model')
+    # parser.add_argument('--pretrained', dest='pretrained', action='store_true',
+    #                     help='use pre-trained model')
     return parser
 
 

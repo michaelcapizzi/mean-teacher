@@ -5,6 +5,7 @@ import shutil
 import time
 import math
 import logging
+import pickle
 
 import numpy as np
 import torch
@@ -17,7 +18,7 @@ from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 # import torchvision.datasets
 
 # from mean_teacher import architectures, datasets, data, losses, ramps, cli
-from mean_teacher import architectures, losses, ramps, cli
+from mean_teacher import architectures, data, losses, ramps, cli
 from mean_teacher.run_context import RunContext
 # from mean_teacher.data import NO_LABEL
 from mean_teacher.utils import *
@@ -39,10 +40,10 @@ def main(context):
     validation_log = context.create_train_log("validation")
     ema_validation_log = context.create_train_log("ema_validation")
 
-    # TODO dataset loading
+    # load datasets
     # dataset_config = datasets.__dict__[args.dataset]()
     # num_classes = dataset_config.pop('num_classes')
-    # train_loader, eval_loader = create_data_loaders(**dataset_config, args=args)
+    train_dataloader, _, eval_dataloader = create_data_loaders(**dataset_config, args=args)
 
     def create_model(ema=False):
         LOG.info("=> creating {ema}model '{arch}'".format(
@@ -75,7 +76,6 @@ def main(context):
 
     LOG.info(parameters_string(model))
 
-    # TODO add to CLI args
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay,
@@ -98,24 +98,28 @@ def main(context):
 
     if args.evaluate:
         LOG.info("Evaluating the primary model:")
-        validate(eval_loader, model, validation_log, global_step, args.start_epoch)
+        # validate(eval_loader, model, validation_log, global_step, args.start_epoch)
+        validate(eval_dataloader, model, validation_log, global_step, args.start_epoch)
         LOG.info("Evaluating the EMA model:")
-        validate(eval_loader, ema_model, ema_validation_log, global_step, args.start_epoch)
+        # validate(eval_loader, ema_model, ema_validation_log, global_step, args.start_epoch)
+        validate(eval_dataloader, ema_model, ema_validation_log, global_step, args.start_epoch)
         return
 
     for epoch in range(args.start_epoch, args.epochs):
         start_time = time.time()
         # train for one epoch
-        # TODO here update
-        train(train_loader, model, ema_model, optimizer, epoch, training_log)
+        # train(train_loader, model, ema_model, optimizer, epoch, training_log)
+        train(train_dataloader, model, ema_model, optimizer, epoch, training_log)
         LOG.info("--- training epoch in %s seconds ---" % (time.time() - start_time))
 
         if args.evaluation_epochs and (epoch + 1) % args.evaluation_epochs == 0:
             start_time = time.time()
             LOG.info("Evaluating the primary model:")
-            prec1 = validate(eval_loader, model, validation_log, global_step, epoch + 1)
+            # prec1 = validate(eval_loader, model, validation_log, global_step, epoch + 1)
+            prec1 = validate(dev_dataloader, model, validation_log, global_step, epoch + 1)
             LOG.info("Evaluating the EMA model:")
-            ema_prec1 = validate(eval_loader, ema_model, ema_validation_log, global_step, epoch + 1)
+            # ema_prec1 = validate(dev_loader, ema_model, ema_validation_log, global_step, epoch + 1)
+            ema_prec1 = validate(dev_dataloader, ema_model, ema_validation_log, global_step, epoch + 1)
             LOG.info("--- validation in %s seconds ---" % (time.time() - start_time))
             is_best = ema_prec1 > best_prec1
             best_prec1 = max(ema_prec1, best_prec1)
@@ -151,22 +155,18 @@ def parse_dict_args(**kwargs):
     args = parser.parse_args(cmdline_args)
 
 
-# TODO update to use torchtext
-def create_data_loaders(train_transformation,
-                        eval_transformation,
-                        datadir,
+# TODO build to get indices of labeled and unlabeled Examples from training dataset
+def get_labeled_unlabeled_idxs(training_dataset):
+    return [], []
+
+
+def create_data_loaders(dir_to_pickled_datasets,
                         args):
-    traindir = os.path.join(datadir, args.train_subdir)
-    evaldir = os.path.join(datadir, args.eval_subdir)
+    train_dataset = pickle.loads("{}/train.pkl".format(args.pickled_datasets))
+    dev_dataset = pickle.loads("{}/dev.pkl".format(args.pickled_datasets))
+    test_dataset = pickle.loads("{}/test.pkl".format(args.pickled_datasets))
 
-    assert_exactly_one([args.exclude_unlabeled, args.labeled_batch_size])
-
-    # dataset = torchvision.datasets.ImageFolder(traindir, train_transformation)
-
-    if args.labels:
-        with open(args.labels) as f:
-            labels = dict(line.split(' ') for line in f.read().splitlines())
-        labeled_idxs, unlabeled_idxs = data.relabel_dataset(dataset, labels)
+    labeled_idxs, unlabeled_idxs = get_labeled_unlabeled_idxs(train_dataset)
 
     if args.exclude_unlabeled:
         sampler = SubsetRandomSampler(labeled_idxs)
@@ -177,20 +177,21 @@ def create_data_loaders(train_transformation,
     else:
         assert False, "labeled batch size {}".format(args.labeled_batch_size)
 
-    train_loader = torch.utils.data.DataLoader(dataset,
-                                               batch_sampler=batch_sampler,
-                                               num_workers=args.workers,
-                                               pin_memory=True)
-
-    eval_loader = torch.utils.data.DataLoader(
-        torchvision.datasets.ImageFolder(evaldir, eval_transformation),
+    train_dataloader = DataLoader(
+    dataset=train_dataset,
+        batch_sampler=batch_sampler
+        )
+    dev_dataloader = DataLoader(
+        dataset=dev_dataset,
+        batch_size=args.batch_size
+    )
+    eval_dataloader = DataLoader(
+        dataset=test_dataset,
         batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=2 * args.workers,  # Needs images twice as fast
-        pin_memory=True,
-        drop_last=False)
+        shuffle=False
+    )
 
-    return train_loader, eval_loader
+    return train_dataloader, dev_dataloader, eval_dataloader
 
 
 def update_ema_variables(model, ema_model, alpha, global_step):
