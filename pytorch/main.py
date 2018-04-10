@@ -37,16 +37,16 @@ def main(context):
     ema_validation_log = context.create_train_log("ema_validation")
 
     # load IMDB dataset
-    train_dataloader, eval_dataloader, train_voc_size, vec_size = create_data_loaders(**dataset_config, args=args)
+    train_dataloader, eval_dataloader, word_field_class = create_data_loaders(**dataset_config, args=args)
 
-    # TODO update embedding layer
-    # embedding_layer = torch.nn.Embedding(10, 7)
     embedding_layer = torch.nn.Embedding(
-        train_voc_size,
-        vec_size
+        len(word_field_class.vocab),
+        word_field_class.vocab.vectors.size()
     )
-    # TODO replace vectors with vectors from Vocab
-    # HERE
+    embedding_layer.weight = nn.Parameter(
+        word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
+        requires_grad=True
+    )
 
     model_params = dict(
         num_layers=1,
@@ -178,9 +178,7 @@ def create_data_loaders(args):
         shuffle=False
     )
 
-    # TODO figure out how to get train vocab size and vector size
-
-    return train_dataloader, eval_dataloader, train_vocab_size, vector_size
+    return train_dataloader, eval_dataloader, train_dataset.fields['text']
 
 
 def update_ema_variables(model, ema_model, alpha, global_step):
@@ -311,7 +309,7 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
 
 
 def validate(eval_loader, model, log, global_step, epoch):
-    class_criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=NO_LABEL)\
+    class_criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=NO_LABEL)
     if model.use_gpu:
         class_criterion.cuda()
     meters = AverageMeterSet()
