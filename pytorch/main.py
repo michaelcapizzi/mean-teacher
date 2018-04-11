@@ -256,17 +256,12 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
     for i, t in enumerate(train_loader):
         input_var = {"input": t.text[0]}
         ema_input_var = {"input": torch.autograd.Variable(input_var["input"].data, requires_grad=False, volatile=True)}
-        # print("input_ema", type(ema_input_var.data))
         target_var = t.label.cuda() if args.use_gpu else t.label
         # measure data loading time
         meters.update('data_time', time.time() - end)
 
         adjust_learning_rate(optimizer, epoch, i, len(train_loader))
         meters.update('lr', optimizer.param_groups[0]['lr'])
-
-        # input_var = torch.autograd.Variable(input)
-        # ema_input_var = torch.autograd.Variable(ema_input, volatile=True)
-        # target_var = torch.autograd.Variable(target.cuda() if args.use_gpu else target)
 
         minibatch_size = len(target_var)
         labeled_minibatch_size = target_var.data.ne(NO_LABEL).sum()
