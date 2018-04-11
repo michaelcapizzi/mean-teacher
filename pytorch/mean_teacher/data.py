@@ -136,7 +136,7 @@ def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vectors, seed=19
     def str_to_label(str_):
         if str_ == "pos":
             return 1
-        elif str == "neg":
+        elif str_ == "neg":
             return 0
 
     for idx in range(len(train.examples)):
@@ -155,8 +155,6 @@ def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vectors, seed=19
 
     return train, test, labeled, unlabeled
 
-
-# TODO build a custom DataLoader that expects torchtext.examples
 
 class TwoStreamBatchSampler(Sampler):
     """Iterate two sets of indices

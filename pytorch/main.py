@@ -120,9 +120,9 @@ def main(context):
         if args.evaluation_epochs and (epoch + 1) % args.evaluation_epochs == 0:
             start_time = time.time()
             LOG.info("Evaluating the primary model:")
-            prec1 = validate(dev_dataloader, model, validation_log, global_step, epoch + 1)
+            prec1 = validate(eval_dataloader, model, validation_log, global_step, epoch + 1)
             LOG.info("Evaluating the EMA model:")
-            ema_prec1 = validate(dev_dataloader, ema_model, ema_validation_log, global_step, epoch + 1)
+            ema_prec1 = validate(eval_dataloader, ema_model, ema_validation_log, global_step, epoch + 1)
             LOG.info("--- validation in %s seconds ---" % (time.time() - start_time))
             is_best = ema_prec1 > best_prec1
             best_prec1 = max(ema_prec1, best_prec1)
@@ -186,18 +186,6 @@ def create_data_loaders(args):
 
     LOG.info("building torchtext iterators")
 
-    # train_dataloader = DataLoader(
-    #     # dataset=list(iter(train_iter)),
-    #     dataset=train_,
-    #     batch_sampler=batch_sampler
-    #     )
-    # eval_dataloader = DataLoader(
-    #     # dataset=list(iter(eval_iter)),
-    #     dataset=eval_,
-    #     batch_size=args.batch_size,
-    #     shuffle=False
-    #     )
-
     # # build iterators
     # TODO need to bring in batch_sampler
     train_iter = tdata.BucketIterator(
@@ -213,14 +201,12 @@ def create_data_loaders(args):
     eval_iter = tdata.BucketIterator(
         dataset=eval_dataset,
         batch_size=args.batch_size,
-        # batch_size=1,
         sort_key=lambda x: len(x.text),
         train=False,
         repeat=False,
         device=-1 if not args.use_gpu else None
     )
 
-    # return train_dataloader, eval_dataloader, train_dataset.fields['text']
     return train_iter, eval_iter, train_dataset.fields['text']
 
 
@@ -252,7 +238,6 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
     ema_model.train()
 
     end = time.time()
-    # for i, ((input, ema_input), target) in enumerate(train_loader):
     for i, t in enumerate(train_loader):
         input_var = {"input": t.text[0]}
         ema_input_var = {"input": torch.autograd.Variable(input_var["input"].data, requires_grad=False, volatile=True)}
