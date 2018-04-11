@@ -100,14 +100,13 @@ NO_LABEL = -1
 
 
 
-# TODO build function to generate datasets
 def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vectors, seed=1978):
     """
-
-    :param number_of_labeled_to_keep:
-    :param vector_name:
-    :param seed:
-    :return:
+    Uses pytorch.datasets to build IMDB dataset
+    :param number_of_labeled_to_keep: number of labeled datapoints to KEEP
+    :param vectors: <Vector> clas to be used
+    :param seed: random seed to be used for removing labels
+    :return: train <Dataset>, test <Dataset>, <list> of labeled indices, <list> of unlabeled indices
     """
 
     TEXT = data.Field(lower=True, include_lengths=True, batch_first=True)
@@ -131,21 +130,35 @@ def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vectors, seed=19
 
     # remove some labels
     random.seed(seed)
-    random_labels_to_remove = set(random.sample(range(train.size), train.size - number_of_labeled_to_keep))
+    random_labels_to_remove = set(random.sample(range(len(train.examples)), len(train.examples) - number_of_labeled_to_keep))
 
     labeled = []
     unlabeled = []
 
-    for idx in range(train.size):
+    def str_to_label(str_):
+        if str_ == "pos":
+            return 1
+        elif str == "neg":
+            return 0
+
+    for idx in range(len(train.examples)):
         if idx in random_labels_to_remove:
-            train.labels[idx] = -1
+            train.examples[idx].label = NO_LABEL
             unlabeled.append(idx)
         else:
+            train.examples[idx].label = str_to_label(train.examples[idx].label)
             labeled.append(idx)
 
-    # return datasets
+    print("removed {} labels from the {} total examples".format(
+        len(unlabeled),
+        len(unlabeled) + len(labeled)
+        )
+    )
+
     return train, test, labeled, unlabeled
 
+
+# TODO build a custom DataLoader that expects torchtext.examples
 
 class TwoStreamBatchSampler(Sampler):
     """Iterate two sets of indices
@@ -189,7 +202,7 @@ def iterate_eternally(indices):
 
 
 def grouper(iterable, n):
-    "Collect data into fixed-length chunks or blocks"
+    """Collect data into fixed-length chunks or blocks"""
     # grouper('ABCDEFG', 3) --> ABC DEF"
     args = [iter(iterable)] * n
     return zip(*args)

@@ -25,4 +25,5 @@ sample_in = LongTensor([
 ])
 sample_in = torch.autograd.Variable(sample_in, requires_grad=False)
 
-print(LSTM.forward({"input": sample_in}))
+out_ = LSTM.forward({"input": sample_in})
+print(out_.shape, out_[:, -1].shape)

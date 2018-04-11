@@ -382,22 +382,16 @@ class LSTM(nn.Module):
         """
         inputs = OrderedDict()
         # run through embedding layers
-        print("embedding")
         for xk, xv in xs.items():
-            print(self.input_embeddings[xk])
             inputs[xk] = self.input_embeddings[xk](xv)
         # concatenate
-        print("concat")
         input_ = torch.cat(list(inputs.values()))
         # apply word-level dropout
         # TODO implement for all layers
         if self.word_level_dropout_layers:
-            print("word-level dropout")
             input_ = self.word_level_dropout_layers[0](input_)   # currently only applying at input layer
         # run through LSTM
-        print("LSTM")
         lstm_out, _ = self.model(input_)
         # apply projection
-        print("projection")
         final_out = self.projection_layer(lstm_out)
-        return final_out
+        return final_out[:, -1]

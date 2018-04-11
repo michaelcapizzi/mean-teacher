@@ -24,6 +24,7 @@ def create_parser():
     #                     help='the subdirectory inside the data directory that contains the evaluation data')
     # parser.add_argument('--labels', default=None, type=str, metavar='FILE',
     #                     help='list of image labels (default: based on directory structure)')
+    parser.add_argument("--use_gpu", default=True, type=str2bool, metavar='BOOL')
     parser.add_argument("--num_labeled", type=int, default=100, help="number of labeled datapoints to KEEP during training")
     # TODO add more vector options
     parser.add_argument("--vectors", type=str, default="GloVe",

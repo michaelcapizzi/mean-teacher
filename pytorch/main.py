@@ -12,6 +12,7 @@ import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
+from torchtext import data as tdata
 
 from torchtext.vocab import GloVe, FastText
 
@@ -37,11 +38,13 @@ def main(context):
     ema_validation_log = context.create_train_log("ema_validation")
 
     # load IMDB dataset
-    train_dataloader, eval_dataloader, word_field_class = create_data_loaders(**dataset_config, args=args)
+    train_dataloader, eval_dataloader, word_field_class = create_data_loaders(args=args)
+
+    LOG.info("building LSTM architecture")
 
     embedding_layer = torch.nn.Embedding(
         len(word_field_class.vocab),
-        word_field_class.vocab.vectors.size()
+        word_field_class.vocab.vectors.size()[1]
     )
     embedding_layer.weight = nn.Parameter(
         word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
@@ -52,9 +55,11 @@ def main(context):
         num_layers=1,
         input_embeddings={"input": embedding_layer},
         hidden_size=450,
-        output_size=None,  # TODO number of labels in IMDB
+        output_size=2,
         batch_size=args.batch_size,
-        use_gpu=False
+        use_gpu=False,
+        dropout_rate=0.4,
+        word_dropout_rate=0.2
     )
 
     def create_model(ema=False):
@@ -99,9 +104,9 @@ def main(context):
     cudnn.benchmark = True
 
     if args.evaluate:
-        LOG.info("Evaluating the primary model:")
+        LOG.info("evaluating the primary model:")
         validate(eval_dataloader, model, validation_log, global_step, args.start_epoch)
-        LOG.info("Evaluating the EMA model:")
+        LOG.info("evaluating the EMA model:")
         validate(eval_dataloader, ema_model, ema_validation_log, global_step, args.start_epoch)
         return
 
@@ -153,32 +158,67 @@ def parse_dict_args(**kwargs):
 
 VECTORS = {
     "GloVe": GloVe(name='6B', dim=300),
-    "FastText": FastText()
+    # "FastText": FastText()
 }
 
 def create_data_loaders(args):
+    LOG.info("importing IMDB dataset")
     train_dataset, eval_dataset, labeled_idxs, unlabeled_idxs = data.make_imdb_dataset_with_unlabeled(args.num_labeled, VECTORS[args.vectors], args.seed)
+
+    # check to see if labeled_batch_size exists
+    labeled_batch_size = args.labeled_batch_size
+    if not labeled_batch_size:
+        # if not, set based on --num-labeled and --batch-size
+        labeled_batch_size = max(
+            int(args.num_labeled / args.epochs),
+            args.batch_size - 1
+        )
 
     if args.exclude_unlabeled:
         sampler = SubsetRandomSampler(labeled_idxs)
         batch_sampler = BatchSampler(sampler, args.batch_size, drop_last=True)
-    elif args.labeled_batch_size:
+    elif labeled_batch_size:
         batch_sampler = data.TwoStreamBatchSampler(
-            unlabeled_idxs, labeled_idxs, args.batch_size, args.labeled_batch_size)
+            unlabeled_idxs, labeled_idxs, args.batch_size, labeled_batch_size)
     else:
-        assert False, "labeled batch size {}".format(args.labeled_batch_size)
+        assert False, "labeled batch size {}".format(labeled_batch_size)
 
-    train_dataloader = DataLoader(
-    dataset=train_dataset,
-        batch_sampler=batch_sampler
-        )
-    eval_dataloader = DataLoader(
-        dataset=eval_dataset,
+    LOG.info("building torchtext iterators")
+
+    # train_dataloader = DataLoader(
+    #     # dataset=list(iter(train_iter)),
+    #     dataset=train_,
+    #     batch_sampler=batch_sampler
+    #     )
+    # eval_dataloader = DataLoader(
+    #     # dataset=list(iter(eval_iter)),
+    #     dataset=eval_,
+    #     batch_size=args.batch_size,
+    #     shuffle=False
+    #     )
+
+    # # build iterators
+    # TODO need to bring in batch_sampler
+    train_iter = tdata.BucketIterator(
+        dataset=train_dataset,
         batch_size=args.batch_size,
-        shuffle=False
+        sort_key=lambda x: len(x.text),
+        train=True,
+        sort=True,
+        repeat=False
     )
 
-    return train_dataloader, eval_dataloader, train_dataset.fields['text']
+    eval_iter = tdata.BucketIterator(
+        dataset=eval_dataset,
+        batch_size=args.batch_size,
+        # batch_size=1,
+        sort_key=lambda x: len(x.text),
+        train=False,
+        repeat=False
+    )
+
+    # return train_dataloader, eval_dataloader, train_dataset.fields['text']
+    return train_iter, eval_iter, train_dataset.fields['text']
 
 
 def update_ema_variables(model, ema_model, alpha, global_step):
@@ -209,16 +249,20 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
     ema_model.train()
 
     end = time.time()
-    for i, ((input, ema_input), target) in enumerate(train_loader):
+    # for i, ((input, ema_input), target) in enumerate(train_loader):
+    for i, t in enumerate(train_loader):
+        input_var = {"input": t.text[0]}
+        ema_input_var = {"input": torch.autograd.Variable(input_var["input"].data, requires_grad=False, volatile=True)}
+        target_var = t.label.cuda() if args.use_gpu else t.label
         # measure data loading time
         meters.update('data_time', time.time() - end)
 
         adjust_learning_rate(optimizer, epoch, i, len(train_loader))
         meters.update('lr', optimizer.param_groups[0]['lr'])
 
-        input_var = torch.autograd.Variable(input)
-        ema_input_var = torch.autograd.Variable(ema_input, volatile=True)
-        target_var = torch.autograd.Variable(target.cuda(async=True))
+        # input_var = torch.autograd.Variable(input)
+        # ema_input_var = torch.autograd.Variable(ema_input, volatile=True)
+        # target_var = torch.autograd.Variable(target.cuda() if args.use_gpu else target)
 
         minibatch_size = len(target_var)
         labeled_minibatch_size = target_var.data.ne(NO_LABEL).sum()
@@ -267,17 +311,17 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
         assert not (np.isnan(loss.data[0]) or loss.data[0] > 1e5), 'Loss explosion: {}'.format(loss.data[0])
         meters.update('loss', loss.data[0])
 
-        prec1, prec5 = accuracy(class_logit.data, target_var.data, topk=(1, 5))
+        prec1, _ = accuracy(class_logit.data, target_var.data, topk=(1, 2))
         meters.update('top1', prec1[0], labeled_minibatch_size)
         meters.update('error1', 100. - prec1[0], labeled_minibatch_size)
-        meters.update('top5', prec5[0], labeled_minibatch_size)
-        meters.update('error5', 100. - prec5[0], labeled_minibatch_size)
+        # meters.update('top5', prec5[0], labeled_minibatch_size)
+        # meters.update('error5', 100. - prec5[0], labeled_minibatch_size)
 
-        ema_prec1, ema_prec5 = accuracy(ema_logit.data, target_var.data, topk=(1, 5))
+        ema_prec1, _ = accuracy(ema_logit.data, target_var.data, topk=(1, 2))
         meters.update('ema_top1', ema_prec1[0], labeled_minibatch_size)
         meters.update('ema_error1', 100. - ema_prec1[0], labeled_minibatch_size)
-        meters.update('ema_top5', ema_prec5[0], labeled_minibatch_size)
-        meters.update('ema_error5', 100. - ema_prec5[0], labeled_minibatch_size)
+        # meters.update('ema_top5', ema_prec5[0], labeled_minibatch_size)
+        # meters.update('ema_error5', 100. - ema_prec5[0], labeled_minibatch_size)
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -298,7 +342,7 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
                 'Class {meters[class_loss]:.4f}\t'
                 'Cons {meters[cons_loss]:.4f}\t'
                 'Prec@1 {meters[top1]:.3f}\t'
-                'Prec@5 {meters[top5]:.3f}'.format(
+                'Prec@5 0.0'.format(
                     epoch, i, len(train_loader), meters=meters))
             log.record(epoch + i / len(train_loader), {
                 'step': global_step,
