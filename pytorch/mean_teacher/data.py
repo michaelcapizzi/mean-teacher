@@ -108,7 +108,8 @@ def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vectors, seed=19
     """
 
     TEXT = data.Field(lower=True, include_lengths=True, batch_first=True)
-    LABEL = data.Field(sequential=False)
+    LABEL = data.Field(sequential=False, batch_first=True, use_vocab=False)
+    # LABEL = data.Field(sequential=False, use_vocab=False)
 
     # make splits for data
     train, test = datasets.IMDB.splits(TEXT, LABEL)
@@ -120,7 +121,7 @@ def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vectors, seed=19
 
     # build the vocabulary
     TEXT.build_vocab(train, vectors=vectors)
-    LABEL.build_vocab(train)
+    # LABEL.build_vocab(train)
 
     # print vocab information
     print('len(TEXT.vocab)', len(TEXT.vocab))

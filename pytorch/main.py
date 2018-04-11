@@ -186,6 +186,11 @@ def create_data_loaders(args):
 
     LOG.info("building torchtext iterators")
 
+
+    print(0, [train_dataset.examples[i].label for i in range(len(train_dataset))].count(0))
+    print(1, [train_dataset.examples[i].label for i in range(len(train_dataset))].count(1))
+    print(-1, [train_dataset.examples[i].label for i in range(len(train_dataset))].count(-1))
+
     # # build iterators
     # TODO need to bring in batch_sampler
     train_iter = tdata.BucketIterator(
@@ -193,7 +198,7 @@ def create_data_loaders(args):
         batch_size=args.batch_size,
         sort_key=lambda x: len(x.text),
         train=True,
-        sort=True,
+        # sort=True,
         repeat=False,
         device=-1 if not args.use_gpu else None
     )
@@ -249,6 +254,7 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
         meters.update('lr', optimizer.param_groups[0]['lr'])
 
         minibatch_size = len(target_var)
+        # requires at least one LABELED point in each batch
         labeled_minibatch_size = target_var.data.ne(NO_LABEL).sum()
         assert labeled_minibatch_size > 0
         meters.update('labeled_minibatch_size', labeled_minibatch_size)

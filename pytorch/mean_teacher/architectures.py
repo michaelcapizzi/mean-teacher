@@ -365,7 +365,6 @@ class LSTM(nn.Module):
         """
         Builds word-level dropout layers to be applied to LSTM
         """
-        print("building dropout")
         if self.word_level_dropout_rate:
             word_level_dropout_layers = OrderedDict()
             for i in range(self.num_layers):
