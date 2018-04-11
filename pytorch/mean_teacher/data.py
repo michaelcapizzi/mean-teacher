@@ -98,8 +98,6 @@ NO_LABEL = -1
 #
 
 
-
-
 def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vectors, seed=1978):
     """
     Uses pytorch.datasets to build IMDB dataset

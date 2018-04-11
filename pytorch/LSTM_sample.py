@@ -15,7 +15,8 @@ LSTM = architectures.LSTM(
     hidden_size=3,
     output_size=2,
     batch_size=1,
-    use_gpu=False
+    # use_gpu=False
+    use_gpu=True
 )
 # sample input
 # 1 x 5 x 1

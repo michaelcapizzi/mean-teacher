@@ -48,6 +48,7 @@ def main(context):
     )
     embedding_layer.weight = nn.Parameter(
         word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
+        # word_field_class.vocab.vectors,#.cuda() if args.use_gpu else word_field_class.vocab.vectors,
         requires_grad=True
     )
 
@@ -205,7 +206,8 @@ def create_data_loaders(args):
         sort_key=lambda x: len(x.text),
         train=True,
         sort=True,
-        repeat=False
+        repeat=False,
+        device=-1 if not args.use_gpu else None
     )
 
     eval_iter = tdata.BucketIterator(
@@ -214,7 +216,8 @@ def create_data_loaders(args):
         # batch_size=1,
         sort_key=lambda x: len(x.text),
         train=False,
-        repeat=False
+        repeat=False,
+        device=-1 if not args.use_gpu else None
     )
 
     # return train_dataloader, eval_dataloader, train_dataset.fields['text']
@@ -253,6 +256,7 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
     for i, t in enumerate(train_loader):
         input_var = {"input": t.text[0]}
         ema_input_var = {"input": torch.autograd.Variable(input_var["input"].data, requires_grad=False, volatile=True)}
+        # print("input_ema", type(ema_input_var.data))
         target_var = t.label.cuda() if args.use_gpu else t.label
         # measure data loading time
         meters.update('data_time', time.time() - end)

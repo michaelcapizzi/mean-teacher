@@ -329,7 +329,7 @@ class LSTM(nn.Module):
         self.output_size = output_size
         self.batch_size = batch_size
         self.bi_directional = bi_directional
-        self.use_gpu=use_gpu
+        self.use_gpu = use_gpu
         self.model = getattr(torch.nn, "LSTM" if not use_gru else "GRU")(
             input_size=self.input_size,
             hidden_size=self.hidden_size,
@@ -341,9 +341,9 @@ class LSTM(nn.Module):
         )
         if self.use_gpu:
             self.model.cuda()
-        self.word_level_dropout_rate=word_dropout_rate
-        self.word_level_dropout_layers=self._build_word_dropout_layers()
-        self.projection_layer=torch.nn.Linear(
+        self.word_level_dropout_rate = word_dropout_rate
+        self.word_level_dropout_layers = self._build_word_dropout_layers()
+        self.projection_layer = torch.nn.Linear(
             in_features=self.hidden_size if not self.bi_directional else self.hidden_size * 2,
             out_features=output_size
         )
@@ -365,6 +365,7 @@ class LSTM(nn.Module):
         """
         Builds word-level dropout layers to be applied to LSTM
         """
+        print("building dropout")
         if self.word_level_dropout_rate:
             word_level_dropout_layers = OrderedDict()
             for i in range(self.num_layers):
