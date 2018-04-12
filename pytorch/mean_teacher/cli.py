@@ -32,7 +32,7 @@ def create_parser():
                         metavar='N', help='mini-batch size (default: 256)')
     parser.add_argument('--labeled-batch-size', default=None, type=int,
                         metavar='N', help="labeled examples per minibatch (default: no constrain)")
-    parser.add_argument('--learning-rate', default=0.1, type=float,
+    parser.add_argument('--lr', default=0.1, type=float,
                         metavar='LR', help='max learning rate')
     parser.add_argument('--initial-lr', default=0.0, type=float,
                         metavar='LR', help='initial learning rate when using linear rampup')
