@@ -343,12 +343,17 @@ class LSTM(nn.Module):
             self.model.cuda()
         self.word_level_dropout_rate = word_dropout_rate
         self.word_level_dropout_layers = self._build_word_dropout_layers()
-        self.projection_layer = torch.nn.Linear(
+        self.projection_layer_classification = torch.nn.Linear(
+            in_features=self.hidden_size if not self.bi_directional else self.hidden_size * 2,
+            out_features=output_size
+        )
+        self.projection_layer_consistency = torch.nn.Linear(
             in_features=self.hidden_size if not self.bi_directional else self.hidden_size * 2,
             out_features=output_size
         )
         if self.use_gpu:
-            self.projection_layer.cuda()
+            self.projection_layer_classification.cuda()
+            self.projection_layer_consistency.cuda()
 
     @staticmethod
     def _get_input_size(dict_of_embedding_classes):
@@ -393,5 +398,6 @@ class LSTM(nn.Module):
         # run through LSTM
         lstm_out, _ = self.model(input_)
         # apply projection
-        final_out = self.projection_layer(lstm_out)
-        return final_out[:, -1]
+        final_out_classification = self.projection_layer_classification(lstm_out)
+        final_out_consistency = self.projection_layer_consistency(lstm_out)
+        return final_out_classification[:, -1], final_out_consistency[:, -1]

@@ -34,7 +34,6 @@ def make_imdb_dataset(number_of_labeled_to_keep, vectors, random_seed=1978):
     print('train.fields', train.fields)
     print('len(train)', len(train))
     print('vars(train[0])', vars(train[0]))
-    print("train[0]", train[0])
 
     # build the vocabulary
     if vectors:
