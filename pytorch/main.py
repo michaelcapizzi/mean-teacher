@@ -246,7 +246,7 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
         #     print("no labeled data in batch")
         # else:
         #     print("labeled data present in batch")
-        continue
+        # continue
         input_var = {"input": t.text[0]}
         ema_input_var = \
             {"input": torch.autograd.Variable(
