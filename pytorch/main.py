@@ -246,7 +246,7 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
         #     print("no labeled data in batch")
         # else:
         #     print("labeled data present in batch")
-        # continue
+        continue
         input_var = {"input": t.text[0]}
         ema_input_var = {"input": torch.autograd.Variable(input_var["input"].data, requires_grad=False, volatile=True)}
         target_var = t.label.cuda() if args.use_gpu else t.label
@@ -367,13 +367,13 @@ def validate(eval_loader, model, log, global_step, epoch):
         meters.update('labeled_minibatch_size', labeled_minibatch_size)
 
         # compute output
-        # TODO why are TWO outputs expected here?
         output1, output2 = model(input_var)
-        softmax1, softmax2 = F.softmax(output1, dim=1), F.softmax(output2, dim=1)
+        # softmax are never used...
+        # softmax1, softmax2 = F.softmax(output1, dim=1), F.softmax(output2, dim=1)
         class_loss = class_criterion(output1, target_var) / minibatch_size
 
         # measure accuracy and record loss
-        prec1, prec5 = accuracy(output1.data, target_var.data, topk=(1, 5))
+        prec1, _ = accuracy(output1.data, target_var.data, topk=(1, 2))
         meters.update('class_loss', class_loss.data[0], labeled_minibatch_size)
         meters.update('top1', prec1[0], labeled_minibatch_size)
         meters.update('error1', 100.0 - prec1[0], labeled_minibatch_size)
@@ -395,7 +395,7 @@ def validate(eval_loader, model, log, global_step, epoch):
                     i, len(eval_loader), meters=meters))
 
     # LOG.info(' * Prec@1 {top1.avg:.3f}\tPrec@5 {top5.avg:.3f}'
-    LOG.info(' * Prec@1 {top1.avg:.3f}'.format(top1=meters['top1'], top5=meters['top5']))
+    LOG.info(' * Prec@1 {top1.avg:.3f}'.format(top1=meters['top1']))
     log.record(epoch, {
         'step': global_step,
         **meters.values(),
