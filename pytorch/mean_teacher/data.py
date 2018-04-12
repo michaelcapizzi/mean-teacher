@@ -107,9 +107,19 @@ def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vectors, seed=19
     :return: train <Dataset>, test <Dataset>, <list> of labeled indices, <list> of unlabeled indices
     """
 
-    TEXT = data.Field(lower=True, include_lengths=True, batch_first=True)
-    LABEL = data.Field(sequential=False, batch_first=True, use_vocab=False)
-    # LABEL = data.Field(sequential=False, use_vocab=False)
+    TEXT = data.Field(
+        tensor_type=LongTensor if not args.use_gpu else cuda.LongTensor,
+        lower=True,
+        include_lengths=True,
+        batch_first=True
+    )
+
+    LABEL = data.Field(
+        tensor_type=LongTensor if not args.use_gpu else cuda.LongTensor,
+        sequential=False,
+        batch_first=True,
+        use_vocab=False
+    )
 
     # make splits for data
     train, test = datasets.IMDB.splits(TEXT, LABEL)
