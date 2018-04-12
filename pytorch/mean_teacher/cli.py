@@ -13,19 +13,9 @@ __all__ = ['parse_cmd_args', 'parse_dict_args']
 # TODO update command line arguments
 def create_parser():
     parser = argparse.ArgumentParser(description='PyTorch mean-teacher NLP Implementation')
-    # parser.add_argument('--dataset', metavar='DATASET', default='imagenet',
-    #                     choices=datasets.__all__,
-    #                     help='dataset: ' +
-    #                         ' | '.join(datasets.__all__) +
-    #                         ' (default: imagenet)')
-    # parser.add_argument('--train-subdir', type=str, default='train',
-    #                     help='the subdirectory inside the data directory that contains the training data')
-    # parser.add_argument('--eval-subdir', type=str, default='val',
-    #                     help='the subdirectory inside the data directory that contains the evaluation data')
-    # parser.add_argument('--labels', default=None, type=str, metavar='FILE',
-    #                     help='list of image labels (default: based on directory structure)')
     parser.add_argument("--use_gpu", default=True, type=str2bool, metavar='BOOL')
-    parser.add_argument("--num_labeled", type=int, default=100, help="number of labeled datapoints to KEEP during training; if -1, keep ALL labels")
+    parser.add_argument("--num_labeled", type=int, default=100,
+                        help="# of labeled examples to KEEP during train; if -1, keep ALL labels")
     # TODO add more vector options
     parser.add_argument("--vectors", type=str, default="GloVe",
                         choices=["GloVe, FastText"])
@@ -34,17 +24,15 @@ def create_parser():
                         choices=architectures.__all__,
                         help='model architecture: ' +
                             ' | '.join(architectures.__all__))
-    # parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
-    #                     help='number of data loading workers (default: 4)')
     parser.add_argument('--epochs', default=90, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='manual epoch number (useful on restarts)')
-    parser.add_argument('-b', '--batch-size', default=256, type=int,
+    parser.add_argument('--batch-size', default=256, type=int,
                         metavar='N', help='mini-batch size (default: 256)')
     parser.add_argument('--labeled-batch-size', default=None, type=int,
                         metavar='N', help="labeled examples per minibatch (default: no constrain)")
-    parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
+    parser.add_argument('--learning-rate', default=0.1, type=float,
                         metavar='LR', help='max learning rate')
     parser.add_argument('--initial-lr', default=0.0, type=float,
                         metavar='LR', help='initial learning rate when using linear rampup')
@@ -56,7 +44,7 @@ def create_parser():
                         help='momentum')
     parser.add_argument('--nesterov', default=False, type=str2bool,
                         help='use nesterov momentum', metavar='BOOL')
-    parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
+    parser.add_argument('--weight-decay', default=1e-4, type=float,
                         metavar='W', help='weight decay (default: 1e-4)')
     parser.add_argument('--ema-decay', default=0.999, type=float, metavar='ALPHA',
                         help='ema variable decay rate (default: 0.999)')
@@ -68,7 +56,8 @@ def create_parser():
     parser.add_argument('--consistency-rampup', default=30, type=int, metavar='EPOCHS',
                         help='length of the consistency loss ramp-up')
     parser.add_argument('--logit-distance-cost', default=-1, type=float, metavar='WEIGHT',
-                        help='let the student model have two outputs and use an MSE loss between the logits with the given weight (default: only have one output)')
+                        help='let the student model have two outputs and use an MSE loss between'
+                        ' the logits with the given weight (default: only have one output)')
     parser.add_argument('--checkpoint-epochs', default=1, type=int,
                         metavar='EPOCHS', help='checkpoint frequency in epochs, 0 to turn checkpointing off (default: 1)')
     parser.add_argument('--evaluation-epochs', default=1, type=int,
@@ -79,8 +68,6 @@ def create_parser():
                         help='path to latest checkpoint (default: none)')
     parser.add_argument('-e', '--evaluate', type=str2bool,
                         help='evaluate model on evaluation set')
-    # parser.add_argument('--pretrained', dest='pretrained', action='store_true',
-    #                     help='use pre-trained model')
     return parser
 
 
