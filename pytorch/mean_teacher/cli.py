@@ -10,20 +10,8 @@ LOG = logging.getLogger('main')
 __all__ = ['parse_cmd_args', 'parse_dict_args']
 
 
-# TODO update command line arguments
 def create_parser():
     parser = argparse.ArgumentParser(description='PyTorch mean-teacher NLP Implementation')
-    # parser.add_argument('--dataset', metavar='DATASET', default='imagenet',
-    #                     choices=datasets.__all__,
-    #                     help='dataset: ' +
-    #                         ' | '.join(datasets.__all__) +
-    #                         ' (default: imagenet)')
-    # parser.add_argument('--train-subdir', type=str, default='train',
-    #                     help='the subdirectory inside the data directory that contains the training data')
-    # parser.add_argument('--eval-subdir', type=str, default='val',
-    #                     help='the subdirectory inside the data directory that contains the evaluation data')
-    # parser.add_argument('--labels', default=None, type=str, metavar='FILE',
-    #                     help='list of image labels (default: based on directory structure)')
     parser.add_argument("--use_gpu", default=True, type=str2bool, metavar='BOOL')
     parser.add_argument("--num_labeled", type=int, default=100, help="number of labeled datapoints to KEEP during training; if -1, keep ALL labels")
     # TODO add more vector options

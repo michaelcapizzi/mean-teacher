@@ -367,6 +367,7 @@ def validate(eval_loader, model, log, global_step, epoch):
         meters.update('labeled_minibatch_size', labeled_minibatch_size)
 
         # compute output
+        # TODO why are TWO outputs expected here?
         output1, output2 = model(input_var)
         softmax1, softmax2 = F.softmax(output1, dim=1), F.softmax(output2, dim=1)
         class_loss = class_criterion(output1, target_var) / minibatch_size
