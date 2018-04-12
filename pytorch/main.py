@@ -10,7 +10,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
-from torch.utils.data import DataLoader
 from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 from torchtext import data as tdata
 
@@ -162,11 +161,14 @@ VECTORS = {
     # "FastText": FastText()
 }
 
+
 def create_data_loaders(args):
     LOG.info("importing IMDB dataset")
-    train_dataset, eval_dataset, labeled_idxs, unlabeled_idxs = data.make_imdb_dataset_with_unlabeled(args.num_labeled, VECTORS[args.vectors], args.seed)
+    train_dataset, eval_dataset, = \
+        data.make_imdb_dataset(args.num_labeled, VECTORS[args.vectors], args.seed)
 
     # check to see if labeled_batch_size exists
+    # TODO fix
     labeled_batch_size = args.labeled_batch_size
     if not labeled_batch_size:
         # if not, set based on --num-labeled and --batch-size
@@ -175,49 +177,34 @@ def create_data_loaders(args):
             args.batch_size - 1
         )
 
-    if args.exclude_unlabeled:
-        sampler = SubsetRandomSampler(labeled_idxs)
-        batch_sampler = BatchSampler(sampler, args.batch_size, drop_last=True)
-    elif labeled_batch_size:
-        batch_sampler = data.TwoStreamBatchSampler(
-            unlabeled_idxs, labeled_idxs, args.batch_size, labeled_batch_size)
-    else:
-        assert False, "labeled batch size {}".format(labeled_batch_size)
-
-    print(0, [train_dataset.examples[i].label for i in range(len(train_dataset))].count(0))
-    print(1, [train_dataset.examples[i].label for i in range(len(train_dataset))].count(1))
-    print(-1, [train_dataset.examples[i].label for i in range(len(train_dataset))].count(-1))
-
     LOG.info("building torchtext iterators")
-
-    def batch_size_custom_function(new_example_to_add, current_count_of_examples_in_batch, current_effective_batch_size):
-        """
-
-        :param new_example_to_add:
-        :param current_count_of_examples_in_batch:
-        :param current_effective_batch_size:
-        :return: new_effective_batch_size_from_adding_example_to_batch
-        """
-
-
-
-    # # build iterators
-    # TODO need to bring in batch_sampler
-    train_iter = tdata.BucketIterator(
-        dataset=train_dataset,
-        batch_size=args.batch_size,
-        batch_size_fn=batch_size_custom_function,
-        sort_key=lambda x: len(x.text),
-        train=True,
-        # sort=True,
-        repeat=False,
-        device=-1 if not args.use_gpu else None
-    )
+    if args.num_labeled == -1:
+        train_iter = tdata.BucketIterator(
+            dataset=train_dataset,
+            batch_size=args.batch_size,
+            sort_key=lambda x: len(x.text),
+            sort_within_batch=True,
+            train=True,
+            repeat=False,
+            device=-1 if not args.use_gpu else None
+        )
+    else:
+        train_iter = data.CustomIterator(
+            dataset=train_dataset,
+            batch_size=args.batch_size,
+            num_labeled_in_batch=labeled_batch_size,
+            sort_key=lambda x: len(x.text),
+            sort_within_batch=True,
+            train=True,
+            repeat=False,
+            device=-1 if not args.use_gpu else None
+        )
 
     eval_iter = tdata.BucketIterator(
         dataset=eval_dataset,
         batch_size=args.batch_size,
         sort_key=lambda x: len(x.text),
+        sort_within_batch=True,
         train=False,
         repeat=False,
         device=-1 if not args.use_gpu else None
@@ -236,7 +223,7 @@ def update_ema_variables(model, ema_model, alpha, global_step):
 def train(train_loader, model, ema_model, optimizer, epoch, log):
     global global_step
 
-    class_criterion = nn.CrossEntropyLoss(size_average=False)
+    class_criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=NO_LABEL)
     if model.use_gpu:
         class_criterion.cuda()
     if args.consistency_type == 'mse':
@@ -255,6 +242,11 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
 
     end = time.time()
     for i, t in enumerate(train_loader):
+        # if 0 not in t.label.data and 1 not in t.label.data:
+        #     print("no labeled data in batch")
+        # else:
+        #     print("labeled data present in batch")
+        # continue
         input_var = {"input": t.text[0]}
         ema_input_var = {"input": torch.autograd.Variable(input_var["input"].data, requires_grad=False, volatile=True)}
         target_var = t.label.cuda() if args.use_gpu else t.label
@@ -342,8 +334,8 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
                 'Data {meters[data_time]:.3f}\t'
                 'Class {meters[class_loss]:.4f}\t'
                 'Cons {meters[cons_loss]:.4f}\t'
-                'Prec@1 {meters[top1]:.3f}\t'
-                'Prec@5 0.0'.format(
+                'Prec@1 {meters[top1]:.3f}\t'.format(
+                # 'Prec@5 0.0'.format(
                     epoch, i, len(train_loader), meters=meters))
             log.record(epoch + i / len(train_loader), {
                 'step': global_step,
@@ -363,11 +355,11 @@ def validate(eval_loader, model, log, global_step, epoch):
     model.eval()
 
     end = time.time()
-    for i, (input, target) in enumerate(eval_loader):
+    for i, t in enumerate(eval_loader):
         meters.update('data_time', time.time() - end)
 
-        input_var = torch.autograd.Variable(input, volatile=True)
-        target_var = torch.autograd.Variable(target.cuda(async=True), volatile=True)
+        input_var = {"input": t.text[0]}
+        target_var = t.label.cuda() if args.use_gpu else t.label
 
         minibatch_size = len(target_var)
         labeled_minibatch_size = target_var.data.ne(NO_LABEL).sum()
@@ -384,8 +376,8 @@ def validate(eval_loader, model, log, global_step, epoch):
         meters.update('class_loss', class_loss.data[0], labeled_minibatch_size)
         meters.update('top1', prec1[0], labeled_minibatch_size)
         meters.update('error1', 100.0 - prec1[0], labeled_minibatch_size)
-        meters.update('top5', prec5[0], labeled_minibatch_size)
-        meters.update('error5', 100.0 - prec5[0], labeled_minibatch_size)
+        # meters.update('top5', prec5[0], labeled_minibatch_size)
+        # meters.update('error5', 100.0 - prec5[0], labeled_minibatch_size)
 
         # measure elapsed time
         meters.update('batch_time', time.time() - end)
@@ -397,12 +389,12 @@ def validate(eval_loader, model, log, global_step, epoch):
                 'Time {meters[batch_time]:.3f}\t'
                 'Data {meters[data_time]:.3f}\t'
                 'Class {meters[class_loss]:.4f}\t'
-                'Prec@1 {meters[top1]:.3f}\t'
-                'Prec@5 {meters[top5]:.3f}'.format(
+                'Prec@1 {meters[top1]:.3f}\t'.format(
+                # 'Prec@5 {meters[top5]:.3f}'.format(
                     i, len(eval_loader), meters=meters))
 
-    LOG.info(' * Prec@1 {top1.avg:.3f}\tPrec@5 {top5.avg:.3f}'
-          .format(top1=meters['top1'], top5=meters['top5']))
+    # LOG.info(' * Prec@1 {top1.avg:.3f}\tPrec@5 {top5.avg:.3f}'
+    LOG.info(' * Prec@1 {top1.avg:.3f}'.format(top1=meters['top1'], top5=meters['top5']))
     log.record(epoch, {
         'step': global_step,
         **meters.values(),

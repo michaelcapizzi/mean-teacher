@@ -25,13 +25,11 @@ def create_parser():
     # parser.add_argument('--labels', default=None, type=str, metavar='FILE',
     #                     help='list of image labels (default: based on directory structure)')
     parser.add_argument("--use_gpu", default=True, type=str2bool, metavar='BOOL')
-    parser.add_argument("--num_labeled", type=int, default=100, help="number of labeled datapoints to KEEP during training")
+    parser.add_argument("--num_labeled", type=int, default=100, help="number of labeled datapoints to KEEP during training; if -1, keep ALL labels")
     # TODO add more vector options
     parser.add_argument("--vectors", type=str, default="GloVe",
                         choices=["GloVe, FastText"])
     parser.add_argument("--seed", type=int, default=1978, help="random seed")
-    parser.add_argument('--exclude-unlabeled', default=False, type=str2bool, metavar='BOOL',
-                        help='exclude unlabeled examples from the training set')
     parser.add_argument('--arch', '-a', metavar='ARCH', default='LSTM',
                         choices=architectures.__all__,
                         help='model architecture: ' +
