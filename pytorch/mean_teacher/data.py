@@ -6,7 +6,6 @@ from torchtext import data
 from torchtext import datasets
 import random
 
-# from PIL import Image
 import numpy as np
 from torch.utils.data.sampler import Sampler
 
@@ -15,111 +14,18 @@ LOG = logging.getLogger('main')
 NO_LABEL = -1
 
 
-
-
-# class RandomTranslateWithReflect:
-#     """Translate image randomly
-#
-#     Translate vertically and horizontally by n pixels where
-#     n is integer drawn uniformly independently for each axis
-#     from [-max_translation, max_translation].
-#
-#     Fill the uncovered blank area with reflect padding.
-#     """
-#
-#     def __init__(self, max_translation):
-#         self.max_translation = max_translation
-#
-#     def __call__(self, old_image):
-#         xtranslation, ytranslation = np.random.randint(-self.max_translation,
-#                                                        self.max_translation + 1,
-#                                                        size=2)
-#         xpad, ypad = abs(xtranslation), abs(ytranslation)
-#         xsize, ysize = old_image.size
-#
-#         flipped_lr = old_image.transpose(Image.FLIP_LEFT_RIGHT)
-#         flipped_tb = old_image.transpose(Image.FLIP_TOP_BOTTOM)
-#         flipped_both = old_image.transpose(Image.ROTATE_180)
-#
-#         new_image = Image.new("RGB", (xsize + 2 * xpad, ysize + 2 * ypad))
-#
-#         new_image.paste(old_image, (xpad, ypad))
-#
-#         new_image.paste(flipped_lr, (xpad + xsize - 1, ypad))
-#         new_image.paste(flipped_lr, (xpad - xsize + 1, ypad))
-#
-#         new_image.paste(flipped_tb, (xpad, ypad + ysize - 1))
-#         new_image.paste(flipped_tb, (xpad, ypad - ysize + 1))
-#
-#         new_image.paste(flipped_both, (xpad - xsize + 1, ypad - ysize + 1))
-#         new_image.paste(flipped_both, (xpad + xsize - 1, ypad - ysize + 1))
-#         new_image.paste(flipped_both, (xpad - xsize + 1, ypad + ysize - 1))
-#         new_image.paste(flipped_both, (xpad + xsize - 1, ypad + ysize - 1))
-#
-#         new_image = new_image.crop((xpad - xtranslation,
-#                                     ypad - ytranslation,
-#                                     xpad + xsize - xtranslation,
-#                                     ypad + ysize - ytranslation))
-#
-#         return new_image
-#
-#
-# class TransformTwice:
-#     def __init__(self, transform):
-#         self.transform = transform
-#
-#     def __call__(self, inp):
-#         out1 = self.transform(inp)
-#         out2 = self.transform(inp)
-#         return out1, out2
-#
-#
-# def relabel_dataset(dataset, labels):
-#     unlabeled_idxs = []
-#     for idx in range(len(dataset.imgs)):
-#         path, _ = dataset.imgs[idx]
-#         filename = os.path.basename(path)
-#         if filename in labels:
-#             label_idx = dataset.class_to_idx[labels[filename]]
-#             dataset.imgs[idx] = path, label_idx
-#             del labels[filename]
-#         else:
-#             dataset.imgs[idx] = path, NO_LABEL
-#             unlabeled_idxs.append(idx)
-#
-#     if len(labels) != 0:
-#         message = "List of unlabeled contains {} unknown files: {}, ..."
-#         some_missing = ', '.join(list(labels.keys())[:5])
-#         raise LookupError(message.format(len(labels), some_missing))
-#
-#     labeled_idxs = sorted(set(range(len(dataset.imgs))) - set(unlabeled_idxs))
-#
-#     return labeled_idxs, unlabeled_idxs
-#
-
-
-def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vectors, seed=1978):
+def make_imdb_dataset(number_of_labeled_to_keep, vectors, random_seed=1978):
     """
     Uses pytorch.datasets to build IMDB dataset
     :param number_of_labeled_to_keep: number of labeled datapoints to KEEP
+                if -1, keep all original labels
     :param vectors: <Vector> clas to be used
     :param seed: random seed to be used for removing labels
-    :return: train <Dataset>, test <Dataset>, <list> of labeled indices, <list> of unlabeled indices
+    :return: train <Dataset>, test <Dataset>,
     """
 
-    TEXT = data.Field(
-        tensor_type=LongTensor if not args.use_gpu else cuda.LongTensor,
-        lower=True,
-        include_lengths=True,
-        batch_first=True
-    )
-
-    LABEL = data.Field(
-        tensor_type=LongTensor if not args.use_gpu else cuda.LongTensor,
-        sequential=False,
-        batch_first=True,
-        use_vocab=False
-    )
+    TEXT = data.Field(lower=True, include_lengths=True, batch_first=True)
+    LABEL = data.Field(sequential=False, batch_first=True, use_vocab=False)#, postprocssing=str_to_label)
 
     # make splits for data
     train, test = datasets.IMDB.splits(TEXT, LABEL)
@@ -128,21 +34,17 @@ def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vectors, seed=19
     print('train.fields', train.fields)
     print('len(train)', len(train))
     print('vars(train[0])', vars(train[0]))
+    print("train[0]", train[0])
 
     # build the vocabulary
-    TEXT.build_vocab(train, vectors=vectors)
-    # LABEL.build_vocab(train)
+    if vectors:
+        TEXT.build_vocab(train, vectors=vectors)
+    else:
+        TEXT.build_vocab(train)
 
     # print vocab information
     print('len(TEXT.vocab)', len(TEXT.vocab))
     print('TEXT.vocab.vectors.size()', TEXT.vocab.vectors.size())
-
-    # remove some labels
-    random.seed(seed)
-    random_labels_to_remove = set(random.sample(range(len(train.examples)), len(train.examples) - number_of_labeled_to_keep))
-
-    labeled = []
-    unlabeled = []
 
     def str_to_label(str_):
         if str_ == "pos":
@@ -150,21 +52,158 @@ def make_imdb_dataset_with_unlabeled(number_of_labeled_to_keep, vectors, seed=19
         elif str_ == "neg":
             return 0
 
-    for idx in range(len(train.examples)):
-        if idx in random_labels_to_remove:
-            train.examples[idx].label = NO_LABEL
-            unlabeled.append(idx)
-        else:
-            train.examples[idx].label = str_to_label(train.examples[idx].label)
-            labeled.append(idx)
+    if number_of_labeled_to_keep != -1:
 
-    print("removed {} labels from the {} total examples".format(
-        len(unlabeled),
-        len(unlabeled) + len(labeled)
+        labeled = []
+        unlabeled = []
+
+        # randomly remove some labels
+        random.seed(random_seed)
+        random_labels_to_remove = \
+            set(
+                random.sample(
+                    range(len(train.examples)),
+                    len(train.examples) - number_of_labeled_to_keep
+                )
+            )
+
+        for idx in range(len(train.examples)):
+            if idx in random_labels_to_remove:
+                train.examples[idx].label = NO_LABEL
+                unlabeled.append(idx)
+            else:
+                train.examples[idx].label = str_to_label(train.examples[idx].label)
+                labeled.append(idx)
+
+        print("removed {} labels from the {} total examples".format(
+            len(unlabeled),
+            len(unlabeled) + len(labeled)
+            )
         )
-    )
+    else:
+        for idx in range(len(train.examples)):
+            train.examples[idx].label = str_to_label(train.examples[idx].label)
+            print("kept all original labels")
 
-    return train, test, labeled, unlabeled
+    # converting test labels to <int>
+    for idx in range(len(test.examples)):
+        test.examples[idx].label = str_to_label(test.examples[idx].label)
+
+    return train, test
+
+
+class CustomIterator(data.BucketIterator):
+
+    def __init__(self, dataset, batch_size, num_labeled_in_batch, sort_key=None, device=None,
+                 batch_size_fn=None, train=True,
+                 repeat=None, shuffle=None, sort=None,
+                 sort_within_batch=None):
+
+        self.num_labeled_in_batch = num_labeled_in_batch
+        data.BucketIterator.__init__(self,
+                                     dataset, batch_size, sort_key, device, batch_size_fn,
+                                     train, repeat, shuffle, sort, sort_within_batch
+                                     )
+
+    def create_batches(self):
+        if self.sort:
+            self.batches = self._batch(self.data(), self.batch_size,
+                                 self.batch_size_fn)
+        else:
+            self.batches = self._pool(self.data(), self.batch_size,
+                                self.sort_key, self.num_labeled_in_batch, self.batch_size_fn,
+                                random_shuffler=self.random_shuffler,
+                                shuffle=self.shuffle,
+                                sort_within_batch=self.sort_within_batch)
+
+    @staticmethod
+    def _batch(data, batch_size, batch_size_fn=None):
+        """Yield elements from data in chunks of batch_size."""
+        if batch_size_fn is None:
+            def batch_size_fn(new, count, sofar):
+                return count
+        minibatch, size_so_far = [], 0
+        for ex in data:
+            minibatch.append(ex)
+            size_so_far = batch_size_fn(ex, len(minibatch), size_so_far)
+            if size_so_far == batch_size:
+                yield minibatch
+                minibatch, size_so_far = [], 0
+            elif size_so_far > batch_size:
+                yield minibatch[:-1]
+                minibatch, size_so_far = minibatch[-1:], batch_size_fn(ex, 1, 0)
+        if minibatch:
+            yield minibatch
+
+    @staticmethod
+    def _batch_custom(data, batch_size, sort_key, num_labeled_in_batch, batch_size_fn=None):
+        """Yield elements from data in chunks of batch_size."""
+        if num_labeled_in_batch > batch_size:
+            raise Exception("num_labeled_in_batch must be < batch_size, {} !< {}".format(
+                num_labeled_in_batch, batch_size
+            )
+            )
+        if batch_size_fn is None:
+            def batch_size_fn(new, count, sofar):
+                return count
+        minibatch, size_so_far = [], 0
+        data = list(data)
+        labeled_data = itertools.cycle(sorted(list(filter(lambda x: x.label in [0,1], data)), key=sort_key))
+        unlabeled_data = sorted(list(filter(lambda x: x.label not in [0,1], data)), key=sort_key)
+        # print("unlabeled size", len(unlabeled_data))
+        # print("num_labeled_in_batch", num_labeled_in_batch)
+        num_unlabeled = batch_size - num_labeled_in_batch
+        # print("num_unlabeled_in_batch", num_unlabeled)
+        i = 0
+        unlabeled_i = 0
+        while i <= len(data) - 1:
+            # print("new minibatch: {}/{}".format(i, len(data) - 1))
+            # add unlabeled first
+            if unlabeled_i <= len(unlabeled_data) - 1:
+                for j in range(num_unlabeled):
+                    # print("adding unlabeled: {}".format(unlabeled_i), unlabeled_data[unlabeled_i].text)
+                    minibatch.append(unlabeled_data[unlabeled_i])
+                    unlabeled_i += 1
+                    i += 1
+            # add labeled
+            for k in range(num_labeled_in_batch):
+                next_ = next(labeled_data)
+                # print("adding labeled", next_.text)
+                minibatch.append(next_)
+                #             labeled_i += 1
+                i += 1
+            # print("full minibatch", [b.text for b in minibatch])
+            yield minibatch
+            minibatch = []
+        if minibatch:
+            yield minibatch
+
+    def _pool(self, data, batch_size, key, num_labeled_in_batch,
+              batch_size_fn=lambda new, count, sofar: count,
+              random_shuffler=None, shuffle=False, sort_within_batch=False):
+        """Sort within buckets, then batch, then shuffle batches.
+        Partitions data into chunks of size 100*batch_size, sorts examples within
+        each chunk using sort_key, then batch these examples and shuffle the
+        batches.
+        """
+        if random_shuffler is None:
+            random_shuffler = random.shuffle
+        for p in self._batch(data, batch_size * 100, batch_size_fn):
+            p_batch = \
+                self._batch_custom(
+                    sorted(p, key=key),
+                    batch_size,
+                    key,
+                    num_labeled_in_batch,
+                    batch_size_fn
+                ) if sort_within_batch \
+                else self._batch(p, batch_size, batch_size_fn)
+            if shuffle:
+                for b in random_shuffler(list(p_batch)):
+                    yield b
+            else:
+                for b in list(p_batch):
+                    yield b
 
 
 class TwoStreamBatchSampler(Sampler):
