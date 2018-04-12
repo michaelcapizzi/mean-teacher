@@ -57,7 +57,7 @@ def create_parser():
                         help='length of the consistency loss ramp-up')
     parser.add_argument('--logit-distance-cost', default=-1, type=float, metavar='WEIGHT',
                         help='let the student model have two outputs and use an MSE loss between'
-                        ' the logits with the given weight (default: only have one output)')
+                        ' the logits with THIS weight (default: only have one output)')
     parser.add_argument('--checkpoint-epochs', default=1, type=int,
                         metavar='EPOCHS',
                         help='checkpoint frequency in epochs, 0 to turn off (default: 1)')
