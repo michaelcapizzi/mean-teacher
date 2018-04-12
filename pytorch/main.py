@@ -248,7 +248,11 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
         #     print("labeled data present in batch")
         # continue
         input_var = {"input": t.text[0]}
-        ema_input_var = {"input": torch.autograd.Variable(input_var["input"].data, requires_grad=False, volatile=True)}
+        ema_input_var = \
+            {"input": torch.autograd.Variable(
+                input_var["input"].data, requires_grad=False, volatile=True
+                )
+            }
         target_var = t.label.cuda() if args.use_gpu else t.label
         # measure data loading time
         meters.update('data_time', time.time() - end)
@@ -279,7 +283,9 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
 
         if args.logit_distance_cost >= 0:
             class_logit, cons_logit = logit1, logit2
-            res_loss = args.logit_distance_cost * residual_logit_criterion(class_logit, cons_logit) / minibatch_size
+            res_loss = args.logit_distance_cost * \
+                       residual_logit_criterion(class_logit, cons_logit) / \
+                       minibatch_size
             meters.update('res_loss', res_loss.data[0])
         else:
             class_logit, cons_logit = logit1, logit1
