@@ -184,18 +184,29 @@ def create_data_loaders(args):
     else:
         assert False, "labeled batch size {}".format(labeled_batch_size)
 
-    LOG.info("building torchtext iterators")
-
-
     print(0, [train_dataset.examples[i].label for i in range(len(train_dataset))].count(0))
     print(1, [train_dataset.examples[i].label for i in range(len(train_dataset))].count(1))
     print(-1, [train_dataset.examples[i].label for i in range(len(train_dataset))].count(-1))
+
+    LOG.info("building torchtext iterators")
+
+    def batch_size_custom_function(new_example_to_add, current_count_of_examples_in_batch, current_effective_batch_size):
+        """
+
+        :param new_example_to_add:
+        :param current_count_of_examples_in_batch:
+        :param current_effective_batch_size:
+        :return: new_effective_batch_size_from_adding_example_to_batch
+        """
+
+
 
     # # build iterators
     # TODO need to bring in batch_sampler
     train_iter = tdata.BucketIterator(
         dataset=train_dataset,
         batch_size=args.batch_size,
+        batch_size_fn=batch_size_custom_function,
         sort_key=lambda x: len(x.text),
         train=True,
         # sort=True,
