@@ -2,19 +2,20 @@
 
 import itertools
 import logging
-from torchtext import data
-from torchtext import datasets
 import random
-
 import numpy as np
+
+import torch
 from torch.utils.data.sampler import Sampler
 
+from torchtext import data
+from torchtext import datasets
 
 LOG = logging.getLogger('main')
 NO_LABEL = -1
 
 
-def make_imdb_dataset(number_of_labeled_to_keep, vectors, random_seed=1978):
+def make_imdb_dataset(number_of_labeled_to_keep, vectors, random_seed=1978, use_gpu=True):
     """
     Uses pytorch.datasets to build IMDB dataset
     :param number_of_labeled_to_keep: number of labeled datapoints to KEEP
@@ -24,8 +25,18 @@ def make_imdb_dataset(number_of_labeled_to_keep, vectors, random_seed=1978):
     :return: train <Dataset>, test <Dataset>,
     """
 
-    TEXT = data.Field(lower=True, include_lengths=True, batch_first=True)
-    LABEL = data.Field(sequential=False, batch_first=True, use_vocab=False)#, postprocssing=str_to_label)
+    TEXT = data.Field(
+        lower=True,
+        include_lengths=True,
+        batch_first=True,
+        tensor_type=torch.cuda.LongTensor if use_gpu else torch.LongTensor
+    )
+    LABEL = data.Field(
+        sequential=False,
+        batch_first=True,
+        use_vocab=False,
+        tensor_type=torch.cuda.LongTensor if use_gpu else torch.LongTensor
+    )#, postprocssing=str_to_label)
 
     # make splits for data
     train, test = datasets.IMDB.splits(TEXT, LABEL)

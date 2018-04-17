@@ -57,7 +57,7 @@ def main(context):
         hidden_size=450,
         output_size=2,
         batch_size=args.batch_size,
-        use_gpu=False,
+        use_gpu=args.use_gpu,
         dropout_rate=0.4,
         word_dropout_rate=0.2
     )
@@ -165,7 +165,7 @@ VECTORS = {
 def create_data_loaders(args):
     LOG.info("importing IMDB dataset")
     train_dataset, eval_dataset, = \
-        data.make_imdb_dataset(args.num_labeled, VECTORS[args.vectors], args.seed)
+        data.make_imdb_dataset(args.num_labeled, VECTORS[args.vectors], args.seed, args.use_gpu)
 
     # check to see if labeled_batch_size exists
     # TODO fix
