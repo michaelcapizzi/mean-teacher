@@ -191,7 +191,7 @@ def create_data_loaders(args):
         train_iter = data.CustomIterator(
             dataset=train_dataset,
             batch_size=args.batch_size,
-            num_labeled_in_batch=int(labeled_batch_size / args.epochs),
+            num_labeled_in_batch=num_labeled_in_batch, # TODO build this variable
             sort_key=lambda x: len(x.text),
             sort_within_batch=True,
             train=True,
