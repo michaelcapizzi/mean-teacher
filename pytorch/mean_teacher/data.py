@@ -152,7 +152,7 @@ class CustomIterator(data.BucketIterator):
             raise Exception("num_labeled_in_batch must be < batch_size, {} !< {}".format(
                 num_labeled_in_batch, batch_size
             )
-            )
+        )
         if batch_size_fn is None:
             def batch_size_fn(new, count, sofar):
                 return count
