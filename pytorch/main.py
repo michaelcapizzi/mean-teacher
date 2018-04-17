@@ -31,6 +31,15 @@ def main(context):
     global global_step
     global best_prec1
 
+    # check to see if labeled_batch_size exists
+    if not args.labeled_batch_size:
+        raise Exception("must set args.labeled_batch_size > 0")
+    if args.labeled_batch_size > args.total_num_labeled:
+        raise Exception("must have num_labeled_in_batch < total_num_labeled: {} !< {}".format(
+            args.labeled_batch_size, args.total_num_labeled
+            )
+        )
+
     checkpoint_path = context.transient_dir
     training_log = context.create_train_log("training")
     validation_log = context.create_train_log("validation")
@@ -164,20 +173,10 @@ VECTORS = {
 def create_data_loaders(args):
     LOG.info("importing IMDB dataset")
     train_dataset, eval_dataset, = \
-        data.make_imdb_dataset(args.num_labeled, VECTORS[args.vectors], args.seed, args.use_gpu)
-
-    # check to see if labeled_batch_size exists
-    # TODO fix
-    labeled_batch_size = args.labeled_batch_size
-    if not labeled_batch_size:
-        # if not, set based on --num-labeled and --batch-size
-        labeled_batch_size = max(
-            int(args.num_labeled / args.epochs),
-            args.batch_size - 1
-        )
+        data.make_imdb_dataset(args.total_num_labeled, VECTORS[args.vectors], args.seed, args.use_gpu)
 
     LOG.info("building torchtext iterators")
-    if args.num_labeled == -1:
+    if args.total_num_labeled == -1:
         train_iter = tdata.BucketIterator(
             dataset=train_dataset,
             batch_size=args.batch_size,
@@ -191,7 +190,7 @@ def create_data_loaders(args):
         train_iter = data.CustomIterator(
             dataset=train_dataset,
             batch_size=args.batch_size,
-            num_labeled_in_batch=num_labeled_in_batch, # TODO build this variable
+            num_labeled_in_batch=args.labeled_batch_size,
             sort_key=lambda x: len(x.text),
             sort_within_batch=True,
             train=True,
