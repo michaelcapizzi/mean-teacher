@@ -47,7 +47,6 @@ def main(context):
     )
     embedding_layer.weight = nn.Parameter(
         word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
-        # word_field_class.vocab.vectors,#.cuda() if args.use_gpu else word_field_class.vocab.vectors,
         requires_grad=True
     )
 
@@ -242,11 +241,6 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
 
     end = time.time()
     for i, t in enumerate(train_loader):
-        # if 0 not in t.label.data and 1 not in t.label.data:
-        #     print("no labeled data in batch")
-        # else:
-        #     print("labeled data present in batch")
-        # continue
         input_var = {"input": t.text[0]}
         ema_input_var = \
             {"input": torch.autograd.Variable(

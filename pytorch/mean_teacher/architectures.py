@@ -307,7 +307,9 @@ class ShiftConvDownsample(nn.Module):
 
 
 class LSTM(nn.Module):
-    def __init__(self, num_layers, input_embeddings, hidden_size, output_size, batch_size, dropout_rate=None, word_dropout_rate=None, bi_directional=True, use_gru=True, use_gpu=True):
+    def __init__(self, num_layers, input_embeddings, hidden_size, output_size,
+                 batch_size, dropout_rate=None, word_dropout_rate=None,
+                 bi_directional=True, use_gru=True, use_gpu=True):
         """
         :param num_layers: number of layers to the model
         :param input_embeddings: <OrderedDict> of Embedding classes for each input to model
