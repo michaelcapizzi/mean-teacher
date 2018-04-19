@@ -10,12 +10,15 @@ LOG = logging.getLogger('main')
 __all__ = ['parse_cmd_args', 'parse_dict_args']
 
 
-# TODO update command line arguments
 def create_parser():
     parser = argparse.ArgumentParser(description='PyTorch mean-teacher NLP Implementation')
     parser.add_argument("--use_gpu", default=True, type=str2bool, metavar='BOOL')
-    parser.add_argument("--num_labeled", type=int, default=100,
+    parser.add_argument('--batch-size', default=64, type=int,
+                        metavar='N', help='mini-batch size')
+    parser.add_argument("--total_num_labeled", type=int, default=100,
                         help="# of labeled examples to KEEP during train; if -1, keep ALL labels")
+    parser.add_argument('--labeled_batch_size', default=8, type=int,
+                        metavar='N', help="labeled examples per minibatch")
     # TODO add more vector options
     parser.add_argument("--vectors", type=str, default="GloVe",
                         choices=["GloVe, FastText"])
@@ -28,10 +31,6 @@ def create_parser():
                         help='number of total epochs to run')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='manual epoch number (useful on restarts)')
-    parser.add_argument('--batch-size', default=256, type=int,
-                        metavar='N', help='mini-batch size (default: 256)')
-    parser.add_argument('--labeled-batch-size', default=None, type=int,
-                        metavar='N', help="labeled examples per minibatch (default: no constrain)")
     parser.add_argument('--lr', default=0.1, type=float,
                         metavar='LR', help='max learning rate')
     parser.add_argument('--initial-lr', default=0.0, type=float,
@@ -53,7 +52,7 @@ def create_parser():
     parser.add_argument('--consistency-type', default="mse", type=str, metavar='TYPE',
                         choices=['mse', 'kl'],
                         help='consistency loss type to use')
-    parser.add_argument('--consistency-rampup', default=30, type=int, metavar='EPOCHS',
+    parser.add_argument('--consistency-rampup', default=20, type=int, metavar='EPOCHS',
                         help='length of the consistency loss ramp-up')
     parser.add_argument('--logit-distance-cost', default=-1, type=float, metavar='WEIGHT',
                         help='let the student model have two outputs and use an MSE loss between'
@@ -64,7 +63,7 @@ def create_parser():
     parser.add_argument('--evaluation-epochs', default=1, type=int,
                         metavar='EPOCHS',
                         help='evaluation frequency in epochs, 0 to turn off (default: 1)')
-    parser.add_argument('--print-freq', '-p', default=10, type=int,
+    parser.add_argument('--print-freq', '-p', default=200, type=int,
                         metavar='N', help='print frequency (default: 10)')
     parser.add_argument('--resume', default='', type=str, metavar='PATH',
                         help='path to latest checkpoint (default: none)')

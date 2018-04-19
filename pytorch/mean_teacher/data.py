@@ -2,19 +2,20 @@
 
 import itertools
 import logging
-from torchtext import data
-from torchtext import datasets
 import random
-
 import numpy as np
+
+import torch
 from torch.utils.data.sampler import Sampler
 
+from torchtext import data
+from torchtext import datasets
 
 LOG = logging.getLogger('main')
 NO_LABEL = -1
 
 
-def make_imdb_dataset(number_of_labeled_to_keep, vectors, random_seed=1978):
+def make_imdb_dataset(number_of_labeled_to_keep, vectors, random_seed=1978, use_gpu=True):
     """
     Uses pytorch.datasets to build IMDB dataset
     :param number_of_labeled_to_keep: number of labeled datapoints to KEEP
@@ -24,16 +25,26 @@ def make_imdb_dataset(number_of_labeled_to_keep, vectors, random_seed=1978):
     :return: train <Dataset>, test <Dataset>,
     """
 
-    TEXT = data.Field(lower=True, include_lengths=True, batch_first=True)
-    LABEL = data.Field(sequential=False, batch_first=True, use_vocab=False)#, postprocssing=str_to_label)
+    TEXT = data.Field(
+        lower=True,
+        include_lengths=True,
+        batch_first=True,
+        tensor_type=torch.cuda.LongTensor if use_gpu else torch.LongTensor
+    )
+    LABEL = data.Field(
+        sequential=False,
+        batch_first=True,
+        use_vocab=False,
+        tensor_type=torch.cuda.LongTensor if use_gpu else torch.LongTensor
+    )#, postprocssing=str_to_label)
 
     # make splits for data
     train, test = datasets.IMDB.splits(TEXT, LABEL)
 
     # print information about the data
-    print('train.fields', train.fields)
-    print('len(train)', len(train))
-    print('vars(train[0])', vars(train[0]))
+    # print('train.fields', train.fields)
+    # print('len(train)', len(train))
+    # print('vars(train[0])', vars(train[0]))
 
     # build the vocabulary
     if vectors:
@@ -42,8 +53,8 @@ def make_imdb_dataset(number_of_labeled_to_keep, vectors, random_seed=1978):
         TEXT.build_vocab(train)
 
     # print vocab information
-    print('len(TEXT.vocab)', len(TEXT.vocab))
-    print('TEXT.vocab.vectors.size()', TEXT.vocab.vectors.size())
+    # print('len(TEXT.vocab)', len(TEXT.vocab))
+    # print('TEXT.vocab.vectors.size()', TEXT.vocab.vectors.size())
 
     def str_to_label(str_):
         if str_ == "pos":
@@ -141,7 +152,7 @@ class CustomIterator(data.BucketIterator):
             raise Exception("num_labeled_in_batch must be < batch_size, {} !< {}".format(
                 num_labeled_in_batch, batch_size
             )
-            )
+        )
         if batch_size_fn is None:
             def batch_size_fn(new, count, sofar):
                 return count
@@ -149,29 +160,22 @@ class CustomIterator(data.BucketIterator):
         data = list(data)
         labeled_data = itertools.cycle(sorted(list(filter(lambda x: x.label in [0,1], data)), key=sort_key))
         unlabeled_data = sorted(list(filter(lambda x: x.label not in [0,1], data)), key=sort_key)
-        # print("unlabeled size", len(unlabeled_data))
-        # print("num_labeled_in_batch", num_labeled_in_batch)
         num_unlabeled = batch_size - num_labeled_in_batch
-        # print("num_unlabeled_in_batch", num_unlabeled)
         i = 0
         unlabeled_i = 0
         while i <= len(data) - 1:
-            # print("new minibatch: {}/{}".format(i, len(data) - 1))
             # add unlabeled first
             if unlabeled_i <= len(unlabeled_data) - 1:
                 for j in range(num_unlabeled):
-                    # print("adding unlabeled: {}".format(unlabeled_i), unlabeled_data[unlabeled_i].text)
                     minibatch.append(unlabeled_data[unlabeled_i])
                     unlabeled_i += 1
                     i += 1
             # add labeled
             for k in range(num_labeled_in_batch):
                 next_ = next(labeled_data)
-                # print("adding labeled", next_.text)
                 minibatch.append(next_)
                 #             labeled_i += 1
                 i += 1
-            # print("full minibatch", [b.text for b in minibatch])
             yield minibatch
             minibatch = []
         if minibatch:

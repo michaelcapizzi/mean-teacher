@@ -31,6 +31,15 @@ def main(context):
     global global_step
     global best_prec1
 
+    # check to see if labeled_batch_size exists
+    if not args.labeled_batch_size:
+        raise Exception("must set args.labeled_batch_size > 0")
+    if args.labeled_batch_size > args.total_num_labeled:
+        raise Exception("must have num_labeled_in_batch < total_num_labeled: {} !< {}".format(
+            args.labeled_batch_size, args.total_num_labeled
+            )
+        )
+
     checkpoint_path = context.transient_dir
     training_log = context.create_train_log("training")
     validation_log = context.create_train_log("validation")
@@ -47,7 +56,6 @@ def main(context):
     )
     embedding_layer.weight = nn.Parameter(
         word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
-        # word_field_class.vocab.vectors,#.cuda() if args.use_gpu else word_field_class.vocab.vectors,
         requires_grad=True
     )
 
@@ -57,7 +65,7 @@ def main(context):
         hidden_size=450,
         output_size=2,
         batch_size=args.batch_size,
-        use_gpu=False,
+        use_gpu=args.use_gpu,
         dropout_rate=0.4,
         word_dropout_rate=0.2
     )
@@ -165,20 +173,10 @@ VECTORS = {
 def create_data_loaders(args):
     LOG.info("importing IMDB dataset")
     train_dataset, eval_dataset, = \
-        data.make_imdb_dataset(args.num_labeled, VECTORS[args.vectors], args.seed)
-
-    # check to see if labeled_batch_size exists
-    # TODO fix
-    labeled_batch_size = args.labeled_batch_size
-    if not labeled_batch_size:
-        # if not, set based on --num-labeled and --batch-size
-        labeled_batch_size = max(
-            int(args.num_labeled / args.epochs),
-            args.batch_size - 1
-        )
+        data.make_imdb_dataset(args.total_num_labeled, VECTORS[args.vectors], args.seed, args.use_gpu)
 
     LOG.info("building torchtext iterators")
-    if args.num_labeled == -1:
+    if args.total_num_labeled == -1:
         train_iter = tdata.BucketIterator(
             dataset=train_dataset,
             batch_size=args.batch_size,
@@ -192,7 +190,7 @@ def create_data_loaders(args):
         train_iter = data.CustomIterator(
             dataset=train_dataset,
             batch_size=args.batch_size,
-            num_labeled_in_batch=labeled_batch_size,
+            num_labeled_in_batch=args.labeled_batch_size,
             sort_key=lambda x: len(x.text),
             sort_within_batch=True,
             train=True,
@@ -242,11 +240,6 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
 
     end = time.time()
     for i, t in enumerate(train_loader):
-        # if 0 not in t.label.data and 1 not in t.label.data:
-        #     print("no labeled data in batch")
-        # else:
-        #     print("labeled data present in batch")
-        # continue
         input_var = {"input": t.text[0]}
         ema_input_var = \
             {"input": torch.autograd.Variable(
