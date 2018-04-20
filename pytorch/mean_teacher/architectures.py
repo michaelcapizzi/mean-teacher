@@ -468,15 +468,12 @@ class DAN(nn.Module):
         """
         shape_ = list(xs.items())[0][1].shape[1]
         # determine which indexes to keep
-        dropout_tensor = torch.FloatTensor(np.full((1, shape_), self.word_level_dropout_rate))
+        dropout_tensor = torch.FloatTensor(np.full((1, shape_), 1 - self.word_level_dropout_rate))
         dropout_tensor.bernoulli_().type(torch.LongTensor)
-        idx_to_keep = torch.autograd.Variable(
-            dropout_tensor,
-            requires_grad=True   # TODO confirm this
-        )
+        nonzero_values = dropout_tensor.nonzero()[:,1]
         dropped_out_values = OrderedDict()
         for n, v in xs.items():
-            dropped_out_values[n] = torch.index_select(v, 1, idx_to_keep)
+            dropped_out_values[n] = v[:,:][:,nonzero_values]
         return dropped_out_values
 
     def forward(self, xs):

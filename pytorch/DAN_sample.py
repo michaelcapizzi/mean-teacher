@@ -16,7 +16,7 @@ DAN = architectures.DAN(
     input_embedding_bags={"input": embedding_layer},
     hidden_size=3,
     output_size=2,
-    batch_size=1,
+    batch_size=2,
     dropout_rate=0.4,
     word_dropout_rate=0.4,
     use_gpu=False
@@ -25,7 +25,8 @@ DAN = architectures.DAN(
 # 1 x 5 x 1
 # batch x seq_length x input_dim
 sample_in = LongTensor([
-    [0,1,2,3,4]
+    [0,1,2,3,4],
+    [4,3,2,1,0]
 ])
 if USE_GPU:
     sample_in.cuda()
