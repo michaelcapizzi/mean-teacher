@@ -1,4 +1,4 @@
-import sys
+import numpy as np
 import math
 import itertools
 from collections import OrderedDict
@@ -428,7 +428,7 @@ class DAN(nn.Module):
         self.output_size = output_size
         self.batch_size = batch_size
         self.dropout_layers = self._build_dropout_layers(num_layers, dropout_rate, use_gpu)
-        self.word_level_dropout_layer = self._build_word_dropout_layer(word_dropout_rate, use_gpu)
+        self.word_level_dropout_rate = word_dropout_rate
         self.hidden_layers = self._build_hidden_layers(num_layers, self.input_size, hidden_size, output_size)
 
     @staticmethod
@@ -441,16 +441,6 @@ class DAN(nn.Module):
             if use_gpu:
                 dropout_layers[i].cuda()
         return dropout_layers
-
-    @staticmethod
-    # TODO fix to remove from list of indexes
-    def _build_word_dropout_layer(d_rate, use_gpu):
-        if not d_rate:
-            d_rate = 0.0
-        dropout_layer = torch.nn.Dropout2d(d_rate)
-        if use_gpu:
-            dropout_layer.cuda()
-        return dropout_layer
 
     @staticmethod
     def _build_hidden_layers(num_layers, input_size, hidden_size, output_size):
@@ -469,9 +459,25 @@ class DAN(nn.Module):
                 )
         return hidden_layers
 
-    # TODO build
     def _apply_word_level_dropout(self, xs):
-        pass
+        """
+        Randomly drops indices with a probability of self.word_dropout_rate
+        :param xs: <OrderedDict> of inputs corresponding to each embedding layer in self.input_embedding_bags
+                    key=name_of_input_embedding, value=input
+        :return: <LongTensor>
+        """
+        shape_ = list(xs.items())[0][1].shape[1]
+        # determine which indexes to keep
+        dropout_tensor = torch.FloatTensor(np.full((1, shape_), self.word_level_dropout_rate))
+        dropout_tensor.bernoulli_().type(torch.LongTensor)
+        idx_to_keep = torch.autograd.Variable(
+            dropout_tensor,
+            requires_grad=True   # TODO confirm this
+        )
+        dropped_out_values = OrderedDict()
+        for n, v in xs.items():
+            dropped_out_values[n] = torch.index_select(v, 1, idx_to_keep)
+        return dropped_out_values
 
     def forward(self, xs):
         """
@@ -480,11 +486,13 @@ class DAN(nn.Module):
                     key=name_of_input_embedding, value=input
         :return: <FloatTensor>
         """
+        print("original", xs)
         inputs = OrderedDict()
+        # apply word_level_dropout
+        dropped_xs = self._apply_word_level_dropout(xs)
+        print("dropped", dropped_xs)
         # run through embedding layers
-        for xk, xv in xs.items():
-            # apply word_level_dropout
-            # TODO here
+        for xk, xv in dropped_xs.items():
             inputs[xk] = self.input_embedding_bags[xk](xv)
         # concatenate
         input_ = torch.cat(list(inputs.values()))
