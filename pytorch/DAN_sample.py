@@ -40,5 +40,6 @@ if USE_GPU:
 sample_in_1 = torch.autograd.Variable(sample_in_1, requires_grad=False)
 sample_in_2 = torch.autograd.Variable(sample_in_2, requires_grad=False)
 
-out_ = DAN.forward({"input_1": sample_in_1, "input_2": sample_in_2})
-print(out_.shape)
+out_cl, out_co = DAN.forward({"input_1": sample_in_1, "input_2": sample_in_2})
+print("final outs")
+print(out_cl, out_co)
