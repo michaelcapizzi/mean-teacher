@@ -392,7 +392,7 @@ class LSTM(nn.Module):
         for xk, xv in xs.items():
             inputs[xk] = self.input_embeddings[xk](xv)
         # concatenate
-        input_ = torch.cat(list(inputs.values()))
+        input_ = torch.cat(list(inputs.values()), -1)
         # apply word-level dropout
         # TODO implement for all layers
         if self.word_level_dropout_layers:
@@ -466,13 +466,13 @@ class DAN(nn.Module):
                     key=name_of_input_embedding, value=input
         :return: <LongTensor>
         """
-        shape_ = list(xs.items())[0][1].shape[1]
-        # determine which indexes to keep
-        dropout_tensor = torch.FloatTensor(np.full((1, shape_), 1 - self.word_level_dropout_rate))
-        dropout_tensor.bernoulli_().type(torch.LongTensor)
-        nonzero_values = dropout_tensor.nonzero()[:,1]
         dropped_out_values = OrderedDict()
         for n, v in xs.items():
+            shape_ = v.shape[1]
+            # determine which indexes to keep
+            dropout_tensor = torch.FloatTensor(np.full((1, shape_), 1 - self.word_level_dropout_rate))
+            dropout_tensor.bernoulli_().type(torch.LongTensor)
+            nonzero_values = dropout_tensor.nonzero()[:,1]
             dropped_out_values[n] = v[:,:][:,nonzero_values]
         return dropped_out_values
 
@@ -483,20 +483,19 @@ class DAN(nn.Module):
                     key=name_of_input_embedding, value=input
         :return: <FloatTensor>
         """
-        print("original", xs)
         inputs = OrderedDict()
+        print("original", xs)
         # apply word_level_dropout
         dropped_xs = self._apply_word_level_dropout(xs)
         print("dropped", dropped_xs)
         # run through embedding layers
         for xk, xv in dropped_xs.items():
             inputs[xk] = self.input_embedding_bags[xk](xv)
+        print(inputs.values())
         # concatenate
-        input_ = torch.cat(list(inputs.values()))
-        print("input size", input_.shape)
+        input_ = torch.cat(list(inputs.values()), -1)
         # run through hidden layers
         hidden_ = input_
         for i, h in self.hidden_layers.items():
             hidden_ = h(hidden_)
-            print("hidden {} size".format(i), hidden_.shape)
         return hidden_
