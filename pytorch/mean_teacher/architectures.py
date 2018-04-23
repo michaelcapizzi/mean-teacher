@@ -337,7 +337,6 @@ class LSTM(nn.Module):
         """
         super().__init__()
         self.num_layers = num_layers
-        self.input_embeddings = input_embeddings
         self.input_size = get_input_size(input_embeddings)
         self.hidden_size = hidden_size
         self.output_size = output_size
@@ -365,9 +364,16 @@ class LSTM(nn.Module):
             in_features=self.hidden_size if not self.bi_directional else self.hidden_size * 2,
             out_features=output_size
         )
+        self.input_embeddings = self._process_embeddings(input_embeddings)
         if self.use_gpu:
             self.projection_layer_classification.cuda()
             self.projection_layer_consistency.cuda()
+
+    def _process_embeddings(self, embedding_dict):
+        # add modules
+        for k,v in embedding_dict.items():
+            self.add_module(k, v)
+        return embedding_dict
 
     def _build_word_dropout_layers(self):
         """
@@ -424,14 +430,28 @@ class DAN(nn.Module):
         """
         super().__init__()
         self.num_layers = num_layers
-        self.model = input_embedding_bags
         self.input_size = get_input_size(input_embedding_bags)
+        self.input_embedding_bags = input_embedding_bags
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.batch_size = batch_size
         self.dropout_layers = self._build_dropout_layers(num_layers, dropout_rate, use_gpu)
         self.word_level_dropout_rate = word_dropout_rate
         self.hidden_layers = self._build_hidden_layers(num_layers, self.input_size, hidden_size, output_size)
+        self.use_gpu = use_gpu
+        self._process_parameters()
+
+    def _process_parameters(self):
+        # add embeddings
+        for k,v in self.input_embedding_bags.items():
+            self.add_module(k, v)
+        # add hidden layers
+        for k,v in self.hidden_layers.items():
+            if not isinstance(v, dict):
+                self.add_module("hidden_{}".format(k), v)
+            else:
+                self.add_module("hidden_{}_classification".format(k), v["classification"])
+                self.add_module("hidden_{}_consistency".format(k), v["consistency"])
 
     @staticmethod
     def _build_dropout_layers(num_layers, d_rate, use_gpu):
@@ -501,7 +521,7 @@ class DAN(nn.Module):
         dropped_xs = self._apply_word_level_dropout(xs)
         # run through embedding layers
         for xk, xv in dropped_xs.items():
-            inputs[xk] = self.model[xk](xv)
+            inputs[xk] = self.input_embedding_bags[xk](xv)
         # concatenate
         input_ = torch.cat(list(inputs.values()), -1)
         # run through hidden layers and dropout layers

@@ -13,7 +13,7 @@ embedding_layer_2 = torch.nn.EmbeddingBag(4, 2)
 # build DAN
 print("building DAN")
 DAN = architectures.DAN(
-    num_layers=8,
+    num_layers=2,
     input_embedding_bags={"input_1": embedding_layer_1, "input_2": embedding_layer_2},
     hidden_size=3,
     output_size=2,
@@ -22,6 +22,10 @@ DAN = architectures.DAN(
     word_dropout_rate=0.4,
     use_gpu=False
 )
+
+for n,p in DAN.named_parameters():
+    print(n, p)
+
 # sample input
 # 1 x 5 x 1
 # batch x seq_length x input_dim

@@ -18,8 +18,12 @@ LSTM = architectures.LSTM(
     hidden_size=3,
     output_size=2,
     batch_size=1,
-    use_gpu=False
+    use_gpu=USE_GPU
 )
+
+for n,p in LSTM.named_parameters():
+    print(n, p)
+
 # sample input
 # 1 x 5 x 1
 # batch x seq_length x input_dim
