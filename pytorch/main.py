@@ -50,15 +50,6 @@ def main(context):
 
     LOG.info("building LSTM architecture")
 
-<<<<<<< HEAD
-    # embedding_layer = torch.nn.Embedding(
-    #     len(word_field_class.vocab),
-    #     word_field_class.vocab.vectors.size()[1]
-    # )
-    # embedding_layer.weight = nn.Parameter(
-    #     word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
-    #     requires_grad=True
-    # )
     if args.arch == "LSTM":
         embedding_layer = torch.nn.Embedding(
             len(word_field_class.vocab),
