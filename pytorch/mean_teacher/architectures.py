@@ -348,12 +348,10 @@ class LSTM(nn.Module):
             hidden_size=self.hidden_size,
             num_layers=self.num_layers,
             batch_first=True,
-            dropout=dropout_rate,
+            dropout=dropout_rate if dropout_rate != None else 0.0,
             bidirectional=self.bi_directional,
 
         )
-        if self.use_gpu:
-            self.model.cuda()
         self.word_level_dropout_rate = word_dropout_rate
         self.word_level_dropout_layers = self._build_word_dropout_layers()
         self.projection_layer_classification = torch.nn.Linear(
@@ -365,9 +363,8 @@ class LSTM(nn.Module):
             out_features=output_size
         )
         self.input_embeddings = self._process_embeddings(input_embeddings)
-        if self.use_gpu:
-            self.projection_layer_classification.cuda()
-            self.projection_layer_consistency.cuda()
+        if use_gpu:
+            self.cuda()
 
     def _process_embeddings(self, embedding_dict):
         # add modules
@@ -383,8 +380,6 @@ class LSTM(nn.Module):
             word_level_dropout_layers = OrderedDict()
             for i in range(self.num_layers):
                 word_level_dropout_layers[i] = torch.nn.Dropout2d(self.word_level_dropout_rate)
-                if self.use_gpu:
-                    word_level_dropout_layers[i].cuda()
             return word_level_dropout_layers
 
     def forward(self, xs):
@@ -435,16 +430,20 @@ class DAN(nn.Module):
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.batch_size = batch_size
-        self.dropout_layers = self._build_dropout_layers(num_layers, dropout_rate, use_gpu)
+        self.dropout_layers = self._build_dropout_layers(num_layers, dropout_rate)
         self.word_level_dropout_rate = word_dropout_rate
         self.hidden_layers = self._build_hidden_layers(num_layers, self.input_size, hidden_size, output_size)
-        self.use_gpu = use_gpu
         self._process_parameters()
+        if use_gpu:
+            self.cuda()
 
     def _process_parameters(self):
         # add embeddings
         for k,v in self.input_embedding_bags.items():
             self.add_module(k, v)
+        # add dropout layers
+        # for k,v in self.dropout_layers.items():
+        #     self.add_module("dropout_{}".format(k), v)
         # add hidden layers
         for k,v in self.hidden_layers.items():
             if not isinstance(v, dict):
@@ -454,14 +453,12 @@ class DAN(nn.Module):
                 self.add_module("hidden_{}_consistency".format(k), v["consistency"])
 
     @staticmethod
-    def _build_dropout_layers(num_layers, d_rate, use_gpu):
+    def _build_dropout_layers(num_layers, d_rate):
         if not d_rate:
             d_rate = 0.0
         dropout_layers = OrderedDict()
         for i in range(num_layers):
             dropout_layers[i] = torch.nn.Dropout(d_rate)
-            if use_gpu:
-                dropout_layers[i].cuda()
         return dropout_layers
 
     @staticmethod
@@ -499,15 +496,18 @@ class DAN(nn.Module):
                     key=name_of_input_embedding, value=input
         :return: <LongTensor>
         """
-        dropped_out_values = OrderedDict()
-        for n, v in xs.items():
-            shape_ = v.shape[1]
-            # determine which indexes to keep
-            dropout_tensor = torch.FloatTensor(np.full((1, shape_), 1 - self.word_level_dropout_rate))
-            dropout_tensor.bernoulli_().type(torch.LongTensor)
-            nonzero_values = dropout_tensor.nonzero()[:,1]
-            dropped_out_values[n] = v[:,:][:,nonzero_values]
-        return dropped_out_values
+        if self.word_level_dropout_rate:
+            dropped_out_values = OrderedDict()
+            for n, v in xs.items():
+                shape_ = v.shape[1]
+                # determine which indexes to keep
+                dropout_tensor = torch.FloatTensor(np.full((1, shape_), 1 - self.word_level_dropout_rate))
+                dropout_tensor.bernoulli_().type(torch.LongTensor)
+                nonzero_values = dropout_tensor.nonzero()[:,1]
+                dropped_out_values[n] = v[:,:][:,nonzero_values]
+            return dropped_out_values
+        else:
+            return xs
 
     def forward(self, xs):
         """
@@ -521,6 +521,7 @@ class DAN(nn.Module):
         dropped_xs = self._apply_word_level_dropout(xs)
         # run through embedding layers
         for xk, xv in dropped_xs.items():
+            print("inputs:  {}".format(xk))
             inputs[xk] = self.input_embedding_bags[xk](xv)
         # concatenate
         input_ = torch.cat(list(inputs.values()), -1)

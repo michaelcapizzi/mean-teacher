@@ -1,9 +1,10 @@
 from mean_teacher import architectures
-from torch import FloatTensor, LongTensor
 import torch.autograd
 import torch.nn
+import torch.cuda
 
-USE_GPU = False
+
+USE_GPU = True
 
 # build embedding_bag layer
 print("building embedding_bag layer")
@@ -19,27 +20,26 @@ DAN = architectures.DAN(
     output_size=2,
     batch_size=2,
     dropout_rate=0.4,
-    word_dropout_rate=0.4,
-    use_gpu=False
+    # word_dropout_rate=0.4,
+    word_dropout_rate=None,
+    use_gpu=USE_GPU
 )
 
 for n,p in DAN.named_parameters():
-    print(n, p)
+    print(n, p.is_cuda)
 
 # sample input
 # 1 x 5 x 1
 # batch x seq_length x input_dim
-sample_in_1 = LongTensor([
+TENSOR_MODULE = torch if not USE_GPU else torch.cuda
+sample_in_1 = getattr(TENSOR_MODULE, "LongTensor")([
     [0,1,2,3,9],
-    [4,3,2,1,6]
+    [4,3,2,1,6],
 ])
-sample_in_2 = LongTensor([
+sample_in_2 = getattr(TENSOR_MODULE, "LongTensor")([
     [0,1,2,3,3],
     [1,3,2,1,1]
 ])
-if USE_GPU:
-    sample_in_1.cuda()
-    sample_in_2.cuda()
 
 sample_in_1 = torch.autograd.Variable(sample_in_1, requires_grad=False)
 sample_in_2 = torch.autograd.Variable(sample_in_2, requires_grad=False)
