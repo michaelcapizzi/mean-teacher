@@ -55,19 +55,16 @@ def main(context):
             len(word_field_class.vocab),
             word_field_class.vocab.vectors.size()[1]
         )
-        embedding_layer.weight = nn.Parameter(
-            word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
-            requires_grad=True
-        )
     elif args.arch == "DAN":
         embedding_layer = torch.nn.EmbeddingBag(
             len(word_field_class.vocab),
             word_field_class.vocab.vectors.size()[1]
         )
-        embedding_layer.weight = nn.Parameter(
-            word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
-            requires_grad=True
-        )
+
+    embedding_layer.weight = nn.Parameter(
+        word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
+        requires_grad=True
+    )
 
     model_params = dict(
         num_layers=1,
