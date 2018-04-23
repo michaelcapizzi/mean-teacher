@@ -148,7 +148,6 @@ class CustomIterator(data.BucketIterator):
     @staticmethod
     def _batch_custom(data, batch_size, sort_key, num_labeled_in_batch, batch_size_fn=None):
         """Yield elements from data in chunks of batch_size."""
-        print("num_labeled_in_batch", num_labeled_in_batch)
         if num_labeled_in_batch > batch_size:
             raise Exception("num_labeled_in_batch must be < batch_size, {} !< {}".format(
                 num_labeled_in_batch, batch_size

@@ -52,7 +52,7 @@ def create_parser():
     parser.add_argument('--consistency-type', default="mse", type=str, metavar='TYPE',
                         choices=['mse', 'kl'],
                         help='consistency loss type to use')
-    parser.add_argument('--consistency-rampup', default=30, type=int, metavar='EPOCHS',
+    parser.add_argument('--consistency-rampup', default=20, type=int, metavar='EPOCHS',
                         help='length of the consistency loss ramp-up')
     parser.add_argument('--logit-distance-cost', default=-1, type=float, metavar='WEIGHT',
                         help='let the student model have two outputs and use an MSE loss between'
