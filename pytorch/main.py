@@ -81,10 +81,13 @@ def main(context):
     elif args.arch == "DAN":
         model_params["input_embedding_bags"] = {"input": embedding_layer}
 
+    print("After dict", embedding_layer.weight.requires_grad)
+
     def create_model(ema=False):
         LOG.info("=> creating {ema}model '{arch}'".format(
             ema='EMA ' if ema else '',
             arch=args.arch))
+
 
         model_factory = architectures.__dict__[args.arch]
 
@@ -94,6 +97,9 @@ def main(context):
         if ema:
             for param in model.parameters():
                 param.detach_()
+                # hack line required to make sure embeddings are still trainable
+                # not sure why embedding_layer is the only Parameter to lose its history of this attribute though
+                embedding_layer.weight.requires_grad = True
 
         return model
 

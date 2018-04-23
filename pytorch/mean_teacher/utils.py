@@ -10,15 +10,15 @@ def parameters_string(module):
         "=========================",
     ]
 
-    row_format = "{name:<40} {shape:>20} ={total_size:>12,d}"
+    row_format = "{name:<45} {shape:>20} ={total_size:>12,d}"
     params = list(module.named_parameters())
     for name, param in params:
         lines.append(row_format.format(
-            name=name,
+            name=name + ": " + str(param.requires_grad),
             shape=" * ".join(str(p) for p in param.size()),
             total_size=param.numel()
         ))
-    lines.append("=" * 75)
+    lines.append("=" * 80)
     lines.append(row_format.format(
         name="all parameters",
         shape="sum of above",
