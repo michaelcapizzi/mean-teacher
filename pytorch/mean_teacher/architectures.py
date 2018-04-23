@@ -424,7 +424,7 @@ class DAN(nn.Module):
         """
         super().__init__()
         self.num_layers = num_layers
-        self.input_embedding_bags = input_embedding_bags
+        self.model = input_embedding_bags
         self.input_size = get_input_size(input_embedding_bags)
         self.hidden_size = hidden_size
         self.output_size = output_size
@@ -497,23 +497,23 @@ class DAN(nn.Module):
         :return: <FloatTensor>
         """
         inputs = OrderedDict()
-        print("original", xs)
         # apply word_level_dropout
         dropped_xs = self._apply_word_level_dropout(xs)
-        print("dropped", dropped_xs)
         # run through embedding layers
         for xk, xv in dropped_xs.items():
-            inputs[xk] = self.input_embedding_bags[xk](xv)
-        print(inputs.values())
+            inputs[xk] = self.model[xk](xv)
         # concatenate
         input_ = torch.cat(list(inputs.values()), -1)
-        # run through hidden layers
+        # run through hidden layers and dropout layers
         hidden_ = input_
         for i in range(self.num_layers):
             h = self.hidden_layers[i]
+            d = self.dropout_layers[i]
             if i != self.num_layers - 1:
+                hidden_ = d(hidden_)
                 hidden_ = h(hidden_)
             else:
+                hidden_ = d(hidden_)
                 out_classification = h["classification"](hidden_)
                 out_consistency = h["consistency"](hidden_)
         return out_classification, out_consistency
