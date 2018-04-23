@@ -50,16 +50,7 @@ def main(context):
 
     LOG.info("building LSTM architecture")
 
-    embedding_layer = torch.nn.Embedding(
-        len(word_field_class.vocab),
-        word_field_class.vocab.vectors.size()[1]
-    )
-    embedding_layer.weight = nn.Parameter(
-        word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
-        requires_grad=True
-    )
-
-    # embedding_layer = torch.nn.EmbeddingBag(
+    # embedding_layer = torch.nn.Embedding(
     #     len(word_field_class.vocab),
     #     word_field_class.vocab.vectors.size()[1]
     # )
@@ -68,10 +59,19 @@ def main(context):
     #     requires_grad=True
     # )
 
+    embedding_layer = torch.nn.EmbeddingBag(
+        len(word_field_class.vocab),
+        word_field_class.vocab.vectors.size()[1]
+    )
+    embedding_layer.weight = nn.Parameter(
+        word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
+        requires_grad=True
+    )
+
     model_params = dict(
         num_layers=2,
-        input_embeddings={"input": embedding_layer},
-        # input_embedding_bags={"input": embedding_layer},
+        # input_embeddings={"input": embedding_layer},
+        input_embedding_bags={"input": embedding_layer},
         hidden_size=450,
         output_size=2,
         batch_size=args.batch_size,
