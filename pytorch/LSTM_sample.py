@@ -22,7 +22,7 @@ LSTM = architectures.LSTM(
 )
 
 for n,p in LSTM.named_parameters():
-    print(n, p.is_cuda)
+    print(n, p.is_cuda, p.requires_grad)
 
 # sample input
 # 1 x 5 x 1

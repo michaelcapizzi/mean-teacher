@@ -342,7 +342,6 @@ class LSTM(nn.Module):
         self.output_size = output_size
         self.batch_size = batch_size
         self.bi_directional = bi_directional
-        self.use_gpu = use_gpu
         self.model = getattr(torch.nn, "LSTM" if not use_gru else "GRU")(
             input_size=self.input_size,
             hidden_size=self.hidden_size,
@@ -365,6 +364,7 @@ class LSTM(nn.Module):
         self.input_embeddings = self._process_embeddings(input_embeddings)
         if use_gpu:
             self.cuda()
+        self.use_gpu = use_gpu
 
     def _process_embeddings(self, embedding_dict):
         # add modules
@@ -433,17 +433,16 @@ class DAN(nn.Module):
         self.dropout_layers = self._build_dropout_layers(num_layers, dropout_rate)
         self.word_level_dropout_rate = word_dropout_rate
         self.hidden_layers = self._build_hidden_layers(num_layers, self.input_size, hidden_size, output_size)
+        # TODO add activation layers!
         self._process_parameters()
         if use_gpu:
             self.cuda()
+        self.use_gpu = use_gpu
 
     def _process_parameters(self):
         # add embeddings
         for k,v in self.input_embedding_bags.items():
             self.add_module(k, v)
-        # add dropout layers
-        # for k,v in self.dropout_layers.items():
-        #     self.add_module("dropout_{}".format(k), v)
         # add hidden layers
         for k,v in self.hidden_layers.items():
             if not isinstance(v, dict):
