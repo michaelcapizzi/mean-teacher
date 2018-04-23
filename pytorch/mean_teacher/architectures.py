@@ -448,17 +448,28 @@ class DAN(nn.Module):
     def _build_hidden_layers(num_layers, input_size, hidden_size, output_size):
         hidden_layers = OrderedDict()
         for i in range(num_layers):
-            out_size = hidden_size if i != num_layers -1 else output_size
             if i == 0:
                 hidden_layers[0] = torch.nn.Linear(
                     in_features=input_size,
-                    out_features=out_size
+                    out_features=hidden_size
                 )
-            else:
+            elif i != num_layers - 1:
                 hidden_layers[i] = torch.nn.Linear(
                     in_features=hidden_size,
-                    out_features=out_size
+                    out_features=hidden_size
                 )
+            else:
+                # for last layer make *two* matrices for *two* outputs
+                hidden_layers[i] = {}
+                hidden_layers[i]["classification"] = torch.nn.Linear(
+                    in_features=hidden_size,
+                    out_features=output_size
+                )
+                hidden_layers[i]["consistency"] = torch.nn.Linear(
+                    in_features=hidden_size,
+                    out_features=output_size
+                )
+
         return hidden_layers
 
     def _apply_word_level_dropout(self, xs):
@@ -498,6 +509,13 @@ class DAN(nn.Module):
         input_ = torch.cat(list(inputs.values()), -1)
         # run through hidden layers
         hidden_ = input_
+        for i in range(self.num_layers):
+            h = self.hidden_layers[i]
+            if i != self.num_layers - 1:
+                hidden_ = h(hidden_)
+            else:
+                out_classification =
+                out_consistency =
         for i, h in self.hidden_layers.items():
             hidden_ = h(hidden_)
         return hidden_
