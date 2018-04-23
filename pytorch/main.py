@@ -50,6 +50,7 @@ def main(context):
 
     LOG.info("building LSTM architecture")
 
+<<<<<<< HEAD
     # embedding_layer = torch.nn.Embedding(
     #     len(word_field_class.vocab),
     #     word_field_class.vocab.vectors.size()[1]
@@ -58,20 +59,27 @@ def main(context):
     #     word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
     #     requires_grad=True
     # )
-
-    embedding_layer = torch.nn.EmbeddingBag(
-        len(word_field_class.vocab),
-        word_field_class.vocab.vectors.size()[1]
-    )
-    embedding_layer.weight = nn.Parameter(
-        word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
-        requires_grad=True
-    )
+    if args.arch == "LSTM":
+        embedding_layer = torch.nn.Embedding(
+            len(word_field_class.vocab),
+            word_field_class.vocab.vectors.size()[1]
+        )
+        embedding_layer.weight = nn.Parameter(
+            word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
+            requires_grad=True
+        )
+    elif args.arch == "DAN":
+        embedding_layer = torch.nn.EmbeddingBag(
+            len(word_field_class.vocab),
+            word_field_class.vocab.vectors.size()[1]
+        )
+        embedding_layer.weight = nn.Parameter(
+            word_field_class.vocab.vectors.cuda() if args.use_gpu else word_field_class.vocab.vectors,
+            requires_grad=True
+        )
 
     model_params = dict(
-        num_layers=2,
-        # input_embeddings={"input": embedding_layer},
-        input_embedding_bags={"input": embedding_layer},
+        num_layers=1,
         hidden_size=450,
         output_size=2,
         batch_size=args.batch_size,
@@ -79,6 +87,11 @@ def main(context):
         dropout_rate=0.4,
         word_dropout_rate=0.2
     )
+
+    if args.arch == "LSTM":
+        model_params["input_embeddings"] = {"input": embedding_layer}
+    elif args.arch == "DAN":
+        model_params["input_embedding_bags"] = {"input": embedding_layer}
 
     def create_model(ema=False):
         LOG.info("=> creating {ema}model '{arch}'".format(
