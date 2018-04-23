@@ -317,6 +317,7 @@ def get_input_size(dict_of_embedding_classes):
     return total_input_size
 
 
+@export
 class LSTM(nn.Module):
     def __init__(self, num_layers, input_embeddings, hidden_size, output_size,
                  batch_size, dropout_rate=None, word_dropout_rate=None,
@@ -405,6 +406,7 @@ class LSTM(nn.Module):
         return final_out_classification[:, -1], final_out_consistency[:, -1]
 
 
+@export
 class DAN(nn.Module):
     def __init__(self, num_layers, input_embedding_bags, hidden_size, output_size,
                  batch_size, dropout_rate=None, word_dropout_rate=None, use_gpu=True):
