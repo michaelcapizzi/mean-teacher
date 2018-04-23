@@ -1,4 +1,4 @@
-import sys
+import numpy as np
 import math
 import itertools
 from collections import OrderedDict
@@ -306,6 +306,17 @@ class ShiftConvDownsample(nn.Module):
         return x
 
 
+def get_input_size(dict_of_embedding_classes):
+    """
+    Determine the required input size by concatenating embeddings
+    :return: <int>
+    """
+    total_input_size = 0
+    for e, v in dict_of_embedding_classes.items():
+        total_input_size += v.embedding_dim
+    return total_input_size
+
+
 class LSTM(nn.Module):
     def __init__(self, num_layers, input_embeddings, hidden_size, output_size,
                  batch_size, dropout_rate=None, word_dropout_rate=None,
@@ -313,7 +324,7 @@ class LSTM(nn.Module):
         """
         :param num_layers: number of layers to the model
         :param input_embeddings: <OrderedDict> of Embedding classes for each input to model
-                                    k=embedding_layer_name, v=embedding class
+                                    k=embedding_layer_name, v=Embedding class
         :param hidden_size: size of hidden layer and c-state in LSTM
         :param output_size: number of labels
         :param batch_size: size of batch
@@ -326,7 +337,7 @@ class LSTM(nn.Module):
         super().__init__()
         self.num_layers = num_layers
         self.input_embeddings = input_embeddings
-        self.input_size = self._get_input_size(input_embeddings)
+        self.input_size = get_input_size(input_embeddings)
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.batch_size = batch_size
@@ -356,17 +367,6 @@ class LSTM(nn.Module):
         if self.use_gpu:
             self.projection_layer_classification.cuda()
             self.projection_layer_consistency.cuda()
-
-    @staticmethod
-    def _get_input_size(dict_of_embedding_classes):
-        """
-        Determine the required input size by concatenating embeddings
-        :return: <int>
-        """
-        total_input_size = 0
-        for e, v in dict_of_embedding_classes.items():
-            total_input_size += v.embedding_dim
-        return total_input_size
 
     def _build_word_dropout_layers(self):
         """
@@ -403,3 +403,100 @@ class LSTM(nn.Module):
         final_out_classification = self.projection_layer_classification(lstm_out)
         final_out_consistency = self.projection_layer_consistency(lstm_out)
         return final_out_classification[:, -1], final_out_consistency[:, -1]
+
+
+class DAN(nn.Module):
+    def __init__(self, num_layers, input_embedding_bags, hidden_size, output_size,
+                 batch_size, dropout_rate=None, word_dropout_rate=None, use_gpu=True):
+        """
+        Architecture described in this paper: http://www.cs.umd.edu/~miyyer/pubs/2015_acl_dan.pdf
+        :param num_layers: number of hidden layers in the model
+        :param input_embedding_bags: <OrderedDict> of EmbeddingBag classes for each input to model
+                                    k=embedding_layer_name, v=EmbeddingBag class
+        :param hidden_size: size of hidden layer
+        :param output_size: number of labels
+        :param batch_size: size of batch
+        :param dropout_rate: dropout rate to apply to each layer
+        :param word_dropout_rate: word-level dropout rate to apply to input layer
+        :param use_gpu: If True, will activate .cuda() for layers
+        """
+        super().__init__()
+        self.num_layers = num_layers
+        self.input_embedding_bags = input_embedding_bags
+        self.input_size = get_input_size(input_embedding_bags)
+        self.hidden_size = hidden_size
+        self.output_size = output_size
+        self.batch_size = batch_size
+        self.dropout_layers = self._build_dropout_layers(num_layers, dropout_rate, use_gpu)
+        self.word_level_dropout_rate = word_dropout_rate
+        self.hidden_layers = self._build_hidden_layers(num_layers, self.input_size, hidden_size, output_size)
+
+    @staticmethod
+    def _build_dropout_layers(num_layers, d_rate, use_gpu):
+        if not d_rate:
+            d_rate = 0.0
+        dropout_layers = OrderedDict()
+        for i in range(num_layers):
+            dropout_layers[i] = torch.nn.Dropout(d_rate)
+            if use_gpu:
+                dropout_layers[i].cuda()
+        return dropout_layers
+
+    @staticmethod
+    def _build_hidden_layers(num_layers, input_size, hidden_size, output_size):
+        hidden_layers = OrderedDict()
+        for i in range(num_layers):
+            out_size = hidden_size if i != num_layers -1 else output_size
+            if i == 0:
+                hidden_layers[0] = torch.nn.Linear(
+                    in_features=input_size,
+                    out_features=out_size
+                )
+            else:
+                hidden_layers[i] = torch.nn.Linear(
+                    in_features=hidden_size,
+                    out_features=out_size
+                )
+        return hidden_layers
+
+    def _apply_word_level_dropout(self, xs):
+        """
+        Randomly drops indices with a probability of self.word_dropout_rate
+        :param xs: <OrderedDict> of inputs corresponding to each embedding layer in self.input_embedding_bags
+                    key=name_of_input_embedding, value=input
+        :return: <LongTensor>
+        """
+        shape_ = list(xs.items())[0][1].shape[1]
+        # determine which indexes to keep
+        dropout_tensor = torch.FloatTensor(np.full((1, shape_), 1 - self.word_level_dropout_rate))
+        dropout_tensor.bernoulli_().type(torch.LongTensor)
+        nonzero_values = dropout_tensor.nonzero()[:,1]
+        dropped_out_values = OrderedDict()
+        for n, v in xs.items():
+            dropped_out_values[n] = v[:,:][:,nonzero_values]
+        return dropped_out_values
+
+    def forward(self, xs):
+        """
+        Runs a single pass through the network
+        :param xs: <OrderedDict> of inputs corresponding to each embedding layer in self.input_embedding_bags
+                    key=name_of_input_embedding, value=input
+        :return: <FloatTensor>
+        """
+        print("original", xs)
+        inputs = OrderedDict()
+        # apply word_level_dropout
+        dropped_xs = self._apply_word_level_dropout(xs)
+        print("dropped", dropped_xs)
+        # run through embedding layers
+        for xk, xv in dropped_xs.items():
+            inputs[xk] = self.input_embedding_bags[xk](xv)
+        # concatenate
+        input_ = torch.cat(list(inputs.values()))
+        print("input size", input_.shape)
+        # run through hidden layers
+        hidden_ = input_
+        for i, h in self.hidden_layers.items():
+            hidden_ = h(hidden_)
+            print("hidden {} size".format(i), hidden_.shape)
+        return hidden_
