@@ -514,8 +514,6 @@ class DAN(nn.Module):
             if i != self.num_layers - 1:
                 hidden_ = h(hidden_)
             else:
-                out_classification =
-                out_consistency =
-        for i, h in self.hidden_layers.items():
-            hidden_ = h(hidden_)
-        return hidden_
+                out_classification = h["classification"](hidden_)
+                out_consistency = h["consistency"](hidden_)
+        return out_classification, out_consistency
