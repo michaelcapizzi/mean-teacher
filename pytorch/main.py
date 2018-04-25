@@ -72,16 +72,14 @@ def main(context):
         output_size=2,
         batch_size=args.batch_size,
         use_gpu=args.use_gpu,
-        dropout_rate=0.4,
-        word_dropout_rate=0.2
+        dropout_rate=0.5,
+        word_dropout_rate=0.5
     )
 
     if args.arch == "LSTM":
         model_params["input_embeddings"] = {"input": embedding_layer}
     elif args.arch == "DAN":
         model_params["input_embedding_bags"] = {"input": embedding_layer}
-
-    print("After dict", embedding_layer.weight.requires_grad)
 
     def create_model(ema=False):
         LOG.info("=> creating {ema}model '{arch}'".format(
