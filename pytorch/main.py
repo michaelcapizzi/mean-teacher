@@ -67,7 +67,7 @@ def main(context):
     )
 
     model_params = dict(
-        num_layers=1,
+        num_layers=2,
         hidden_size=450,
         output_size=2,
         batch_size=args.batch_size,
@@ -85,7 +85,6 @@ def main(context):
         LOG.info("=> creating {ema}model '{arch}'".format(
             ema='EMA ' if ema else '',
             arch=args.arch))
-
 
         model_factory = architectures.__dict__[args.arch]
 
@@ -124,7 +123,8 @@ def main(context):
         optimizer.load_state_dict(checkpoint['optimizer'])
         LOG.info("=> loaded checkpoint '{}' (epoch {})".format(args.resume, checkpoint['epoch']))
 
-    cudnn.benchmark = True
+    if args.use_gpu:
+        cudnn.benchmark = True
 
     if args.evaluate:
         LOG.info("evaluating the primary model:")
