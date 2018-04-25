@@ -495,12 +495,15 @@ class DAN(nn.Module):
                     key=name_of_input_embedding, value=input
         :return: <LongTensor>
         """
+        TENSOR_MODULE = torch if not self.use_gpu else torch.cuda
         if self.word_level_dropout_rate:
             dropped_out_values = OrderedDict()
             for n, v in xs.items():
                 shape_ = v.shape[1]
                 # determine which indexes to keep
-                dropout_tensor = torch.FloatTensor(np.full((1, shape_), 1 - self.word_level_dropout_rate))
+                dropout_tensor = getattr(TENSOR_MODULE, "LongTensor")(
+                    np.full((1, shape_), 1 - self.word_level_dropout_rate)
+                )
                 dropout_tensor.bernoulli_().type(torch.LongTensor)
                 nonzero_values = dropout_tensor.nonzero()[:,1]
                 dropped_out_values[n] = v[:,:][:,nonzero_values]
@@ -520,7 +523,6 @@ class DAN(nn.Module):
         dropped_xs = self._apply_word_level_dropout(xs)
         # run through embedding layers
         for xk, xv in dropped_xs.items():
-            print("inputs:  {}".format(xk))
             inputs[xk] = self.input_embedding_bags[xk](xv)
         # concatenate
         input_ = torch.cat(list(inputs.values()), -1)

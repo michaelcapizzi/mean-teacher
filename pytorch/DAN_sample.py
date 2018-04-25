@@ -14,14 +14,14 @@ embedding_layer_2 = torch.nn.EmbeddingBag(4, 2)
 # build DAN
 print("building DAN")
 DAN = architectures.DAN(
-    num_layers=2,
+    num_layers=1,
     input_embedding_bags={"input_1": embedding_layer_1, "input_2": embedding_layer_2},
     hidden_size=3,
     output_size=2,
     batch_size=2,
     dropout_rate=0.4,
-    # word_dropout_rate=0.4,
-    word_dropout_rate=None,
+    word_dropout_rate=0.4,
+    # word_dropout_rate=None,
     use_gpu=USE_GPU
 )
 
