@@ -410,7 +410,7 @@ class LSTM(nn.Module):
 @export
 class DAN(nn.Module):
     def __init__(self, num_layers, input_embedding_bags, hidden_size, output_size,
-                 batch_size, dropout_rate=None, word_dropout_rate=None, use_gpu=True):
+                 batch_size, activation="ReLU", dropout_rate=None, word_dropout_rate=None, use_gpu=True):
         """
         Architecture described in this paper: http://www.cs.umd.edu/~miyyer/pubs/2015_acl_dan.pdf
         :param num_layers: number of hidden layers in the model
@@ -419,11 +419,14 @@ class DAN(nn.Module):
         :param hidden_size: size of hidden layer
         :param output_size: number of labels
         :param batch_size: size of batch
+        :param activation: type of activation layer
         :param dropout_rate: dropout rate to apply to each layer
         :param word_dropout_rate: word-level dropout rate to apply to input layer
         :param use_gpu: If True, will activate .cuda() for layers
         """
         super().__init__()
+        if num_layers < 2:
+            raise Exception("number of layers for DAN architecture must be > 2")
         self.num_layers = num_layers
         self.input_size = get_input_size(input_embedding_bags)
         self.input_embedding_bags = input_embedding_bags
@@ -433,23 +436,11 @@ class DAN(nn.Module):
         self.dropout_layers = self._build_dropout_layers(num_layers, dropout_rate)
         self.word_level_dropout_rate = word_dropout_rate
         self.hidden_layers = self._build_hidden_layers(num_layers, self.input_size, hidden_size, output_size)
-        # TODO add activation layers!
+        self.activation_layers = self._build_activation_layers(num_layers, activation)
         self._process_parameters()
         if use_gpu:
             self.cuda()
         self.use_gpu = use_gpu
-
-    def _process_parameters(self):
-        # add embeddings
-        for k,v in self.input_embedding_bags.items():
-            self.add_module(k, v)
-        # add hidden layers
-        for k,v in self.hidden_layers.items():
-            if not isinstance(v, dict):
-                self.add_module("hidden_{}".format(k), v)
-            else:
-                self.add_module("hidden_{}_classification".format(k), v["classification"])
-                self.add_module("hidden_{}_consistency".format(k), v["consistency"])
 
     @staticmethod
     def _build_dropout_layers(num_layers, d_rate):
@@ -485,8 +476,27 @@ class DAN(nn.Module):
                     in_features=hidden_size,
                     out_features=output_size
                 )
-
         return hidden_layers
+
+    @staticmethod
+    def _build_activation_layers(num_layers, activation_type):
+        activation = getattr(nn, activation_type)
+        activation_layers = OrderedDict()
+        for i in range(num_layers):
+            activation_layers[i] = activation()
+        return activation_layers
+
+    def _process_parameters(self):
+        # add embeddings
+        for k,v in self.input_embedding_bags.items():
+            self.add_module(k, v)
+        # add hidden layers
+        for k,v in self.hidden_layers.items():
+            if not isinstance(v, dict):
+                self.add_module("hidden_{}".format(k), v)
+            else:
+                self.add_module("hidden_{}_classification".format(k), v["classification"])
+                self.add_module("hidden_{}_consistency".format(k), v["consistency"])
 
     def _apply_word_level_dropout(self, xs):
         """
@@ -531,9 +541,11 @@ class DAN(nn.Module):
         for i in range(self.num_layers):
             h = self.hidden_layers[i]
             d = self.dropout_layers[i]
+            a = self.activation_layers[i]
             if i != self.num_layers - 1:
                 hidden_ = d(hidden_)
                 hidden_ = h(hidden_)
+                hidden_ = a(hidden_)
             else:
                 hidden_ = d(hidden_)
                 out_classification = h["classification"](hidden_)
