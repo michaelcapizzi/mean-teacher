@@ -4,7 +4,7 @@ import torch.nn
 import torch.cuda
 
 
-USE_GPU = True
+USE_GPU = False
 
 # build embedding_bag layer
 print("building embedding_bag layer")
@@ -14,7 +14,7 @@ embedding_layer_2 = torch.nn.EmbeddingBag(4, 2)
 # build DAN
 print("building DAN")
 DAN = architectures.DAN(
-    num_layers=1,
+    num_layers=2,
     input_embedding_bags={"input_1": embedding_layer_1, "input_2": embedding_layer_2},
     hidden_size=3,
     output_size=2,
