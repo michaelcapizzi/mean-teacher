@@ -67,8 +67,8 @@ def main(context):
     )
 
     model_params = dict(
-        num_layers=2,
-        hidden_size=450,
+        num_layers=1,
+        hidden_size=10,
         output_size=2,
         batch_size=args.batch_size,
         use_gpu=args.use_gpu,
@@ -254,6 +254,8 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
     ema_model.train()
 
     end = time.time()
+    epoch_loss = 0
+
     for i, t in enumerate(train_loader):
         input_var = {"input": t.text[0]}
         ema_input_var = \
@@ -315,6 +317,7 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
             meters.update('cons_loss', 0)
 
         loss = class_loss + consistency_loss + res_loss
+        epoch_loss += loss
         assert not (np.isnan(loss.data[0]) or loss.data[0] > 1e5), 'Loss explosion: {}'.format(loss.data[0])
         meters.update('loss', loss.data[0])
 
@@ -357,6 +360,7 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
                 **meters.averages(),
                 **meters.sums()
             })
+    LOG.info('Epoch: {}\t total epoch loss: {:.3f}\t'.format(epoch, epoch_loss.data[0]))
 
 
 def validate(eval_loader, model, log, global_step, epoch):

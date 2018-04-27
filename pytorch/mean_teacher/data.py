@@ -36,7 +36,7 @@ def make_imdb_dataset(number_of_labeled_to_keep, vectors, random_seed=1978, use_
         batch_first=True,
         use_vocab=False,
         tensor_type=torch.cuda.LongTensor if use_gpu else torch.LongTensor
-    )#, postprocssing=str_to_label)
+    )
 
     # make splits for data
     train, test = datasets.IMDB.splits(TEXT, LABEL)
