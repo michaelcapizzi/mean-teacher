@@ -68,7 +68,7 @@ def main(context):
 
     model_params = dict(
         num_layers=2,
-        hidden_size=450,
+        hidden_size=200,
         output_size=2,
         batch_size=args.batch_size,
         use_gpu=args.use_gpu,
