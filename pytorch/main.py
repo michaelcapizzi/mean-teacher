@@ -133,10 +133,11 @@ def main(context):
         validate(eval_dataloader, ema_model, ema_validation_log, global_step, args.start_epoch)
         return
 
+    epoch_losses = []
     for epoch in range(args.start_epoch, args.epochs):
         start_time = time.time()
         # train for one epoch
-        train(train_dataloader, model, ema_model, optimizer, epoch, training_log)
+        train(train_dataloader, model, ema_model, optimizer, epoch, epoch_losses, training_log)
         LOG.info("--- training epoch in %s seconds ---" % (time.time() - start_time))
 
         if args.evaluation_epochs and (epoch + 1) % args.evaluation_epochs == 0:
@@ -233,8 +234,13 @@ def update_ema_variables(model, ema_model, alpha, global_step):
         ema_param.data.mul_(alpha).add_(1 - alpha, param.data)
 
 
-def train(train_loader, model, ema_model, optimizer, epoch, log):
+def train(train_loader, model, ema_model, optimizer, epoch, epoch_losses, log):
     global global_step
+
+    try:
+        previous_loss = epoch_losses[-1]
+    except:
+        previous_loss = 0.0
 
     class_criterion = nn.CrossEntropyLoss(size_average=False, ignore_index=NO_LABEL)
     if model.use_gpu:
@@ -254,6 +260,8 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
     ema_model.train()
 
     end = time.time()
+    epoch_loss = 0
+
     for i, t in enumerate(train_loader):
         input_var = {"input": t.text[0]}
         ema_input_var = \
@@ -315,6 +323,7 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
             meters.update('cons_loss', 0)
 
         loss = class_loss + consistency_loss + res_loss
+        epoch_loss += loss.cpu().data.numpy()
         assert not (np.isnan(loss.data[0]) or loss.data[0] > 1e5), 'Loss explosion: {}'.format(loss.data[0])
         meters.update('loss', loss.data[0])
 
@@ -357,6 +366,13 @@ def train(train_loader, model, ema_model, optimizer, epoch, log):
                 **meters.averages(),
                 **meters.sums()
             })
+    epoch_losses.append(epoch_loss[0])
+    LOG.info('Epoch: {}\t total epoch loss: {:.3f}\t diff from previous epoch: {:.3f}\t'.format(
+        epoch,
+        epoch_loss[0],
+        epoch_loss[0] - previous_loss
+        )
+    )
 
 
 def validate(eval_loader, model, log, global_step, epoch):
