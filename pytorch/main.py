@@ -314,7 +314,7 @@ def train(train_loader, model, ema_model, optimizer, epoch, epoch_losses, log):
         ema_class_loss = class_criterion(ema_logit, target_var) / minibatch_size
         meters.update('ema_class_loss', ema_class_loss.data[0])
 
-        if args.consistency and not args.exclude_unlabeled:
+        if args.consistency and (not args.exclude_unlabeled or args.total_num_labeled == -1):
             consistency_weight = get_current_consistency_weight(epoch)
             meters.update('cons_weight', consistency_weight)
             consistency_loss = consistency_weight * consistency_criterion(cons_logit, ema_logit) / minibatch_size
