@@ -15,12 +15,13 @@ LOG = logging.getLogger('main')
 NO_LABEL = -1
 
 
-def make_imdb_dataset(number_of_labeled_to_keep, vectors, random_seed=1978, use_gpu=True):
+def make_imdb_dataset(number_of_labeled_to_keep, vectors, exclude_unlabeled=False, random_seed=1978, use_gpu=True):
     """
     Uses pytorch.datasets to build IMDB dataset
     :param number_of_labeled_to_keep: number of labeled datapoints to KEEP
                 if -1, keep all original labels
-    :param vectors: <Vector> clas to be used
+    :param vectors: <Vector> class to be used
+    :param exclude_unlabeled: if True, will *NOT* return unlabeled data
     :param seed: random seed to be used for removing labels
     :return: train <Dataset>, test <Dataset>,
     """
@@ -77,9 +78,12 @@ def make_imdb_dataset(number_of_labeled_to_keep, vectors, random_seed=1978, use_
                 )
             )
 
-        for idx in range(len(train.examples)):
+        for idx in reversed(range(len(train.examples))):
             if idx in random_labels_to_remove:
-                train.examples[idx].label = NO_LABEL
+                if not exclude_unlabeled:
+                    train.examples[idx].label = NO_LABEL
+                else:
+                    del train.examples[idx]
                 unlabeled.append(idx)
             else:
                 train.examples[idx].label = str_to_label(train.examples[idx].label)
@@ -93,7 +97,7 @@ def make_imdb_dataset(number_of_labeled_to_keep, vectors, random_seed=1978, use_
     else:
         for idx in range(len(train.examples)):
             train.examples[idx].label = str_to_label(train.examples[idx].label)
-            print("kept all original labels")
+        print("kept all original labels")
 
     # converting test labels to <int>
     for idx in range(len(test.examples)):

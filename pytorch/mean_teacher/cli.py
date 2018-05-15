@@ -19,6 +19,8 @@ def create_parser():
                         help="# of labeled examples to KEEP during train; if -1, keep ALL labels")
     parser.add_argument('--labeled_batch_size', default=8, type=int,
                         metavar='N', help="labeled examples per minibatch")
+    parser.add_argument('--exclude-unlabeled', default=False, type=str2bool, metavar='BOOL',
+                        help='exclude unlabeled examples from the training set')
     # TODO add more vector options
     parser.add_argument("--vectors", type=str, default="GloVe",
                         choices=["GloVe, FastText"])

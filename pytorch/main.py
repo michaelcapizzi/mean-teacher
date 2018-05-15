@@ -32,13 +32,14 @@ def main(context):
     global best_prec1
 
     # check to see if labeled_batch_size exists
-    if not args.labeled_batch_size:
-        raise Exception("must set args.labeled_batch_size > 0")
-    if args.labeled_batch_size > args.total_num_labeled:
-        raise Exception("must have num_labeled_in_batch < total_num_labeled: {} !< {}".format(
-            args.labeled_batch_size, args.total_num_labeled
+    if args.total_num_labeled != -1:
+        if not args.labeled_batch_size:
+            raise Exception("must set args.labeled_batch_size > 0")
+        if args.labeled_batch_size > args.total_num_labeled:
+            raise Exception("must have num_labeled_in_batch < total_num_labeled: {} !< {}".format(
+                args.labeled_batch_size, args.total_num_labeled
+                )
             )
-        )
 
     checkpoint_path = context.transient_dir
     training_log = context.create_train_log("training")
@@ -189,7 +190,7 @@ VECTORS = {
 def create_data_loaders(args):
     LOG.info("importing IMDB dataset")
     train_dataset, eval_dataset, = \
-        data.make_imdb_dataset(args.total_num_labeled, VECTORS[args.vectors], args.seed, args.use_gpu)
+        data.make_imdb_dataset(args.total_num_labeled, VECTORS[args.vectors], args.exclude_unlabeled, args.seed, args.use_gpu)
 
     LOG.info("building torchtext iterators")
     if args.total_num_labeled == -1:
@@ -313,7 +314,7 @@ def train(train_loader, model, ema_model, optimizer, epoch, epoch_losses, log):
         ema_class_loss = class_criterion(ema_logit, target_var) / minibatch_size
         meters.update('ema_class_loss', ema_class_loss.data[0])
 
-        if args.consistency:
+        if args.consistency and not args.exclude_unlabeled:
             consistency_weight = get_current_consistency_weight(epoch)
             meters.update('cons_weight', consistency_weight)
             consistency_loss = consistency_weight * consistency_criterion(cons_logit, ema_logit) / minibatch_size
