@@ -264,6 +264,10 @@ def train(train_loader, model, ema_model, optimizer, epoch, epoch_losses, log):
     epoch_loss = 0
 
     for i, t in enumerate(train_loader):
+        # reset grads
+        model.zero_grad()
+        # reset hiddens
+        model.hidden = model.init_hidden()
         input_var = {"input": t.text[0]}
         ema_input_var = \
             {"input": torch.autograd.Variable(

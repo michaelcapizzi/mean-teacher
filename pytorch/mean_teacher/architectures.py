@@ -382,6 +382,16 @@ class LSTM(nn.Module):
                 word_level_dropout_layers[i] = torch.nn.Dropout2d(self.word_level_dropout_rate)
             return word_level_dropout_layers
 
+    def init_hidden(self):
+        """
+        Reset hidden (h_*) and c-state (c_*)
+        with shape of(num_layers, minibatch_size, hidden_dim)
+        """
+        return (
+            torch.zeros(self.num_layers, self.batch_size, self.hidden_size),  # h_*
+            torch.zeros(self.num_layers, self.batch_size, self.hidden_size)   # c_*
+            )
+
     def forward(self, xs):
         """
         Runs a single pass through the network
